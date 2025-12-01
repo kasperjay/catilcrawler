@@ -1,12 +1,45 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
-import { 
-    isNonConcertEvent, 
-    createEventRecord, 
-    cleanArtistLines, 
-    extractTime, 
-    MARKETS 
-} from '@calendarcrawlers/common';
+
+// Embedded shared utilities
+const NON_CONCERT_KEYWORDS = [
+    'bingo', 'rock and roll bingo', 'trivia'
+];
+
+function isNonConcertEvent(eventTitle, pageText, artistLines = [], customKeywords = []) {
+    const allKeywords = [...NON_CONCERT_KEYWORDS, ...customKeywords];
+    const combinedText = `${eventTitle} ${pageText} ${artistLines.join(' ')}`.toLowerCase();
+    return allKeywords.some((keyword) => combinedText.includes(keyword));
+}
+
+function createEventRecord({ source, eventUrl, eventTitle, eventDateText, showTime, doorsTime, priceText, venueName, market, artistName, role }) {
+    return {
+        source, eventUrl, eventTitle, eventDateText,
+        showTime: showTime || '', doorsTime: doorsTime || '', priceText: priceText || '',
+        venueName: venueName || '', market, artistName, role,
+        scrapedAt: new Date().toISOString()
+    };
+}
+
+function cleanArtistLines(artistLines) {
+    return artistLines.filter((line) => {
+        const lower = line.toLowerCase();
+        if (lower.includes('all ages')) return false;
+        if (lower.includes('show:')) return false;
+        if (lower.includes('doors:')) return false;
+        if (lower.includes('day of')) return false;
+        if (lower.includes('comandtakeitproductions.com')) return false;
+        if (lower.startsWith('tickets')) return false;
+        return line.length > 0;
+    });
+}
+
+function extractTime(line, label) {
+    if (!line) return '';
+    return line.replace(new RegExp(`^${label}:\\s*`, 'i'), '').trim();
+}
+
+const MARKETS = { AUSTIN: 'Austin, TX' };
 
 Actor.main(async () => {
     const input = await Actor.getInput() || {};

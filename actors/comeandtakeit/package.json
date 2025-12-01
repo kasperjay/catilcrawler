@@ -11,7 +11,7 @@
   "dependencies": {
     "apify": "^3.0.0",
     "crawlee": "^3.0.0",
-    "@calendarcrawlers/common": "file:../../packages/common"
+    "playwright": "^1.57.0"
   },
   "keywords": ["apify", "crawler", "calendar", "comeandtakeit"],
   "author": "",
