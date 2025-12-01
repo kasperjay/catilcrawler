@@ -1,0 +1,13 @@
+{
+  "name": "@calendarcrawlers/common",
+  "version": "1.0.0",
+  "description": "Shared utilities for calendar crawler actors",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["apify", "crawler", "calendar", "events"],
+  "author": "",
+  "license": "ISC"
+}

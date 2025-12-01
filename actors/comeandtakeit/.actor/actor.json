@@ -1,0 +1,10 @@
+{
+    "actorSpecification": 1,
+    "name": "come-and-take-it-calendar-scraper",
+    "title": "Come And Take It Productions – Calendar Scraper",
+    "description": "Scrapes the Come And Take It Productions calendar, visits each event page, and outputs one row per artist (headliner + supports).",
+    "version": "1.0.0",
+    "input": "./input_schema.json",
+    "output": "./output_schema.json"
+  }
+  

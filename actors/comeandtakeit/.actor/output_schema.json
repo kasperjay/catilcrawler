@@ -1,0 +1,14 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Come & Take It Productions scraper output",
+    "description": "Points to the default dataset items for this run.",
+    "properties": {
+      "results": {
+        "type": "string",
+        "title": "Results",
+        "description": "All items pushed with Actor.pushData (one row per artist per event).",
+        "template": "{{links.apiDefaultDatasetUrl}}/items"
+      }
+    }
+  }
+  

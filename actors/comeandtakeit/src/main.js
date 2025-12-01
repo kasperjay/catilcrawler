@@ -1,5 +1,12 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
+import { 
+    isNonConcertEvent, 
+    createEventRecord, 
+    cleanArtistLines, 
+    extractTime, 
+    MARKETS 
+} from '@calendarcrawlers/common';
 
 Actor.main(async () => {
     const input = await Actor.getInput() || {};
@@ -87,7 +94,7 @@ Actor.main(async () => {
                 try {
                     venueName = await page.textContent('a[href*="comeandtakeitlive.com"], a[href*="house-of-rock"]');
                 } catch {
-                    // Ignore, we’ll try a fallback below
+                    // Ignore, we'll try a fallback below
                 }
 
                 if (!venueName) {
@@ -162,30 +169,11 @@ Actor.main(async () => {
                     artistLines = artistLines.slice(1);
                 }
 
-                // Final cleanup: remove non-band noise
-                artistLines = artistLines.filter((line) => {
-                    const lower = line.toLowerCase();
-                    if (lower.includes('all ages')) return false;
-                    if (lower.includes('show:')) return false;
-                    if (lower.includes('doors:')) return false;
-                    if (lower.includes('day of')) return false;
-                    if (lower.includes('comandtakeitproductions.com')) return false;
-                    if (lower.startsWith('tickets')) return false;
-                    return line.length > 0;
-                });
+                // Clean artist lines using shared utility
+                artistLines = cleanArtistLines(artistLines);
 
-                // Filter out obvious non-concert events (e.g. "Rock and Roll Bingo").
-                // If the title, page text or parsed artist lines contain any of these
-                // keywords, we assume it's not a concert and skip the event.
-                const nonConcertKeywords = [
-                    'bingo',
-                    'rock and roll bingo',
-                    'trivia',
-                    'karaoke'
-                 ];
-
-                const combinedText = `${eventTitle} ${mainTextRaw} ${artistLines.join(' ')}`.toLowerCase();
-                if (nonConcertKeywords.some((kw) => combinedText.includes(kw))) {
+                // Filter out non-concert events using shared utility
+                if (isNonConcertEvent(eventTitle, mainTextRaw, artistLines)) {
                     log.info(`Skipping non-concert event detected by keyword on ${eventUrl}: ${eventTitle}`);
                     return;
                 }
@@ -194,28 +182,24 @@ Actor.main(async () => {
                     log.warning(`No artist lines parsed on ${eventUrl}. Layout may have changed or pattern didn't match.`);
                 }
 
-                // ... we cleaned artistLines above ...
-
-                const market = 'Austin, TX';
-                
                 // Fallback: if we couldn't parse any artist lines, treat eventTitle as a single headliner.
                 if (artistLines.length === 0) {
                     if (eventTitle) {
                         log.warning(`No artist lines parsed on ${eventUrl}. Using eventTitle as single headliner.`);
-                        const record = {
+                        const record = createEventRecord({
                             source: 'comeandtakeitproductions.com',
                             eventUrl,
                             eventTitle,
                             eventDateText: dateLine,
-                            showTime: showLine.replace(/^show:\s*/i, '').trim() || '',
-                            doorsTime: doorsLine.replace(/^doors:\s*/i, '').trim() || '',
+                            showTime: extractTime(showLine, 'show'),
+                            doorsTime: extractTime(doorsLine, 'doors'),
                             priceText: priceLine,
                             venueName,
-                            market,
+                            market: MARKETS.AUSTIN,
                             artistName: eventTitle,
                             role: 'headliner',
-                        };
-                        Actor.pushData(record);
+                        });
+                        await Actor.pushData(record);
                     } else {
                         log.warning(`No artist lines and no eventTitle on ${eventUrl}. Skipping.`);
                     }
@@ -223,25 +207,25 @@ Actor.main(async () => {
                 }
                 
                 // Normal case: we have a block of bands after "presents..."
-                artistLines.forEach((artistName, index) => {
+                for (const [index, artistName] of artistLines.entries()) {
                     const role = index === 0 ? 'headliner' : 'support';
                 
-                    const record = {
+                    const record = createEventRecord({
                         source: 'comeandtakeitproductions.com',
                         eventUrl,
                         eventTitle,
                         eventDateText: dateLine,
-                        showTime: showLine.replace(/^show:\s*/i, '').trim() || '',
-                        doorsTime: doorsLine.replace(/^doors:\s*/i, '').trim() || '',
+                        showTime: extractTime(showLine, 'show'),
+                        doorsTime: extractTime(doorsLine, 'doors'),
                         priceText: priceLine,
                         venueName,
-                        market,
+                        market: MARKETS.AUSTIN,
                         artistName,
                         role,
-                    };
+                    });
                 
-                    Actor.pushData(record);
-                });
+                    await Actor.pushData(record);
+                }
             }
         },
 

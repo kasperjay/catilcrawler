@@ -1,16 +1,23 @@
 {
-    "name": "come-and-take-it-calendar-scraper",
+    "name": "calendarcrawlers-monorepo",
     "version": "1.0.0",
-    "description": "Scrapes the Come And Take It Productions calendar and event pages and outputs one row per artist.",
+    "description": "Monorepo for calendar crawler actors",
+    "private": true,
     "type": "module",
-    "main": "src/main.js",
+    "workspaces": [
+      "packages/*",
+      "actors/*"
+    ],
     "scripts": {
-      "start": "node src/main.js"
+      "test": "echo \"Error: no test specified\" && exit 1",
+      "install-all": "npm install && npm run install-actors",
+      "install-actors": "npm run install --workspaces"
     },
-    "dependencies": {
-      "apify": "^3.0.0",
-      "crawlee": "^3.0.0",
-      "playwright": "^1.48.0"
+    "keywords": ["apify", "crawler", "calendar", "monorepo"],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+      "eslint": "^9.17.0"
     }
   }
   
