@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "apify": "^3.0.0",
-    "crawlee": "^3.0.0",
-    "@calendarcrawlers/common": "file:../../packages/common"
+    "crawlee": "^3.0.0"
   },
   "keywords": ["apify", "crawler", "calendar", "empire", "atx"],
   "author": "",

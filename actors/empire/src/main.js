@@ -1,10 +1,38 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
-import { 
-    isNonConcertEvent, 
-    createEventRecord, 
-    MARKETS 
-} from '@calendarcrawlers/common';
+
+// Non-concert event keywords for filtering
+const NON_CONCERT_KEYWORDS = [
+    'bingo', 'rock and roll bingo', 'trivia', 'karaoke', 'open mic', 'open-mic',
+    'market', 'farmers market', 'brunch', 'yoga', 'workshop', 'class', 'book signing',
+    'pop up', 'pop-up', 'paint night', 'dance party', 'dance', 'dinner', 'mixer',
+    'meetup', 'meet-up', 'fundraiser', 'fund raiser', 'silent auction', 'auction',
+    'craft fair', 'bazaar', 'expo', 'conference', 'festival', 'movie night',
+    'film screening', 'screening', 'lecture', 'reading', 'panel', 'networking',
+    'open house', 'sound bath', 'fitness', 'wellness', 'charity', 'vendor', 'vendors',
+    'crafts', 'bake sale'
+];
+
+// Check if an event should be filtered out as non-concert
+function isNonConcertEvent(eventTitle, pageText, artistLines = []) {
+    const combinedText = `${eventTitle} ${pageText} ${artistLines.join(' ')}`.toLowerCase();
+    return NON_CONCERT_KEYWORDS.some((keyword) => combinedText.includes(keyword));
+}
+
+// Create a standardized event record
+function createEventRecord({
+    source, eventUrl, eventTitle, eventDateText, showTime, doorsTime, 
+    priceText, venueName, market, artistName, role
+}) {
+    return {
+        source, eventUrl, eventTitle, eventDateText,
+        showTime: showTime || '', doorsTime: doorsTime || '', 
+        priceText: priceText || '', venueName: venueName || '',
+        market, artistName, role, scrapedAt: new Date().toISOString()
+    };
+}
+
+const MARKETS = { AUSTIN: 'Austin, TX' };
 
 Actor.main(async () => {
     const input = await Actor.getInput() || {};
