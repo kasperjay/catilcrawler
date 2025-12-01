@@ -3,12 +3,12 @@
     "name": "empire-atx-calendar-scraper",
     "title": "Empire ATX Calendar Scraper",
     "description": "Scrapes the Empire ATX calendar and event pages and outputs one row per artist.",
-    "version": "1.0.0",
+    "version": "1.0",
     "meta": {
         "templateId": "playwright-crawler",
         "generatedBy": "Claude Sonnet 4"
     },
-    "input": "./.actor/input_schema.json",
+    "input": "./input_schema.json",
     "dockerfile": "./Dockerfile",
     "readme": "./README.md",
     "categories": ["ENTERTAINMENT"]

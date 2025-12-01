@@ -1,6 +1,6 @@
 {
   "name": "empire-atx-crawler",
-  "version": "1.0.0",
+  "version": "1.0",
   "description": "Empire ATX calendar crawler",
   "main": "src/main.js",
   "type": "module",

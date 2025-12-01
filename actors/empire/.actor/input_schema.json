@@ -8,7 +8,8 @@
             "type": "string",
             "description": "URL of the Empire ATX calendar page",
             "default": "https://empireatx.com/calendar/",
-            "prefill": "https://empireatx.com/calendar/"
+            "prefill": "https://empireatx.com/calendar/",
+            "editor": "textfield"
         },
         "maxConcurrency": {
             "title": "Max Concurrency",
