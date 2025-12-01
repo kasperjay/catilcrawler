@@ -178,8 +178,6 @@ Actor.main(async () => {
                     log.warning(`No artist lines parsed on ${eventUrl}. Layout may have changed or pattern didn't match.`);
                 }
 
-                const market = 'Austin, TX';
-
                 // ... we cleaned artistLines above ...
 
                 const market = 'Austin, TX';
