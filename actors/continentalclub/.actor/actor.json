@@ -1,14 +1,20 @@
 {
     "actorSpecification": 1,
     "name": "continental-club-calendar-scraper",
-    "title": "Continental Club Austin Calendar Scraper",
-    "description": "Scrapes event listings from Continental Club Austin's calendar page to extract concert information including artist names, dates, and event details.",
-    "version": "1.0.0",
+    "title": "Continental Club Calendar Scraper",
+    "description": "Scrapes events from Continental Club's calendar page and extracts concert information including artist names, dates, and event details.",
+    "version": "1.0",
     "meta": {
-        "templateId": "playwright-scraper",
+        "templateId": "playwright-crawler",
         "generatedBy": "Claude Sonnet 4"
     },
-    "input": "input_schema.json",
-    "output": "output_schema.json",
-    "dockerfile": "../../../Dockerfile"
+    "input": "./input_schema.json",
+    "dockerfile": "./Dockerfile",
+    "readme": "./README.md",
+    "envVars": [
+        {
+            "name": "APIFY_HEADLESS",
+            "value": "1"
+        }
+    ]
 }

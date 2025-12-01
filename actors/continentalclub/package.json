@@ -1,23 +1,20 @@
 {
     "name": "continentalclub-crawler",
     "version": "1.0.0",
-    "description": "Continental Club Austin calendar scraper",
+    "description": "Continental Club calendar scraper",
     "main": "src/main.js",
     "scripts": {
         "start": "node src/main.js"
     },
-    "keywords": [
-        "apify",
-        "crawler",
-        "continental-club",
-        "calendar",
-        "events"
-    ],
-    "author": "Calendar Crawlers",
-    "license": "MIT",
     "dependencies": {
-        "apify": "^3.5.2",
-        "crawlee": "^3.15.3",
+        "apify": "^3.1.10",
+        "crawlee": "^3.7.2",
         "playwright": "^1.57.0"
-    }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/kasperjay/catilcrawler.git"
+    },
+    "author": "Kasper Jay",
+    "license": "MIT"
 }
