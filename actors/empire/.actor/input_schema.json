@@ -1,0 +1,23 @@
+{
+    "title": "Empire ATX Calendar Scraper Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "calendarUrl": {
+            "title": "Calendar URL",
+            "type": "string",
+            "description": "URL of the Empire ATX calendar page",
+            "default": "https://empireatx.com/calendar/",
+            "prefill": "https://empireatx.com/calendar/"
+        },
+        "maxConcurrency": {
+            "title": "Max Concurrency",
+            "type": "integer",
+            "description": "Maximum number of concurrent requests",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 10
+        }
+    },
+    "required": ["calendarUrl"]
+}

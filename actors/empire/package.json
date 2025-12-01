@@ -1,7 +1,7 @@
 {
-  "name": "comeandtakeit-crawler",
+  "name": "empire-atx-crawler",
   "version": "1.0.0",
-  "description": "Come & Take It Productions calendar crawler",
+  "description": "Empire ATX calendar crawler",
   "main": "src/main.js",
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
     "crawlee": "^3.0.0",
     "@calendarcrawlers/common": "file:../../packages/common"
   },
-  "keywords": ["apify", "crawler", "calendar", "comeandtakeit"],
+  "keywords": ["apify", "crawler", "calendar", "empire", "atx"],
   "author": "",
   "license": "ISC"
 }
