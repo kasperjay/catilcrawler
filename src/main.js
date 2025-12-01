@@ -199,7 +199,7 @@ Actor.main(async () => {
                             artistName: eventTitle,
                             role: 'headliner',
                         };
-                        await Actor.pushData(record);
+                        Actor.pushData(record);
                     } else {
                         log.warning(`No artist lines and no eventTitle on ${eventUrl}. Skipping.`);
                     }
@@ -224,7 +224,7 @@ Actor.main(async () => {
                         role,
                     };
                 
-                    await Actor.pushData(record);
+                    Actor.pushData(record);
                 });
             }
         },
