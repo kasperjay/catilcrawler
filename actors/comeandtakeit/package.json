@@ -1,6 +1,6 @@
 {
   "name": "comeandtakeit-crawler",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "description": "Come & Take It Productions calendar crawler",
   "main": "src/main.js",
   "type": "module",

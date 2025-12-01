@@ -1,0 +1,16 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Continental Club Austin Calendar Scraper Output",
+    "properties": {
+        "events": {
+            "type": "string",
+            "title": "Scraped Events",
+            "template": "{{links.apiDefaultDatasetUrl}}/items"
+        },
+        "summary": {
+            "type": "string", 
+            "title": "Scraping Summary",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys/summary"
+        }
+    }
+}
