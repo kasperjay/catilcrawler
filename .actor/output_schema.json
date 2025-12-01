@@ -1,63 +1,13 @@
 {
     "actorOutputSchemaVersion": 1,
     "title": "Come & Take It Productions scraper output",
-    "description": "All artists (headliners and supporting acts) scraped from Come And Take It Productions event pages.",
-    "type": "object",
+    "description": "Points to the default dataset items for this run.",
     "properties": {
       "results": {
+        "type": "string",
         "title": "Results",
-        "description": "One item per artist per event, including event and role metadata.",
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "source": {
-              "type": "string",
-              "description": "Source identifier, e.g. 'comeandtakeitproductions.com'."
-            },
-            "eventUrl": {
-              "type": "string",
-              "description": "URL of the event detail page."
-            },
-            "eventTitle": {
-              "type": "string",
-              "description": "Title of the event as shown on the page."
-            },
-            "eventDateText": {
-              "type": "string",
-              "description": "Raw event date text, e.g. 'Tuesday, December 02'."
-            },
-            "showTime": {
-              "type": "string",
-              "description": "Show time parsed from the page, if available."
-            },
-            "doorsTime": {
-              "type": "string",
-              "description": "Doors time parsed from the page, if available."
-            },
-            "priceText": {
-              "type": "string",
-              "description": "Ticket price text as displayed (may include ranges / day-of)."
-            },
-            "venueName": {
-              "type": "string",
-              "description": "Venue name as parsed from the event page."
-            },
-            "market": {
-              "type": "string",
-              "description": "Market / city, e.g. 'Austin, TX'."
-            },
-            "artistName": {
-              "type": "string",
-              "description": "Name of the artist (headliner or support)."
-            },
-            "role": {
-              "type": "string",
-              "description": "Role of the artist on the bill, e.g. 'headliner' or 'support'."
-            }
-          },
-          "required": ["eventUrl", "artistName"]
-        }
+        "description": "All items pushed with Actor.pushData (one row per artist per event).",
+        "template": "{{links.apiDefaultDatasetUrl}}/items"
       }
     }
   }
