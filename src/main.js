@@ -199,7 +199,7 @@ Actor.main(async () => {
                             artistName: eventTitle,
                             role: 'headliner',
                         };
-                        Actor.pushData(record);
+                        await Actor.pushData(record);
                     } else {
                         log.warning(`No artist lines and no eventTitle on ${eventUrl}. Skipping.`);
                     }
@@ -224,9 +224,10 @@ Actor.main(async () => {
                         role,
                     };
                 
-                    Actor.pushData(record);
+                    await Actor.pushData(record);
                 });
-                
+            }
+        },
 
         failedRequestHandler({ request, log }) {
             log.error(`Request ${request.url} failed too many times.`);
