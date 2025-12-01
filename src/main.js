@@ -50,13 +50,21 @@ Actor.main(async () => {
                 const eventUrl = request.url;
 
                 // Event title (big H1)
-                let eventTitle = (await page.textContent('h1')) || '';
-                eventTitle = eventTitle.trim();
+                let eventTitle = '';
+                try {
+                    eventTitle = (await page.textContent('h1')) || '';
+                    eventTitle = eventTitle.trim();
+                } catch {
+                    log.warning(`Could not get <h1> title on ${eventUrl}`);
+                }
 
-                // Grab the main text block for parsing date, times, bands, etc.
-                const mainTextRaw = (await page.textContent('main')) || '';
-                const mainText = mainTextRaw.replace(/\r/g, '');
-                const lines = mainText
+                // Grab all visible text from the page body instead of <main>
+                const mainTextRaw = await page.evaluate(() => {
+                    return (document.body && document.body.innerText) || '';
+                });
+
+                const cleaned = mainTextRaw.replace(/\r/g, '');
+                const lines = cleaned
                     .split('\n')
                     .map((l) => l.trim())
                     .filter((l) => l.length > 0);
@@ -74,17 +82,22 @@ Actor.main(async () => {
                     lines.find((l) => l.toLowerCase().startsWith('doors:')) || '';
                 const priceLine = lines.find((l) => l.includes('$')) || '';
 
-                // Venue name – appears as link "Come and Take it Live" on the page
-                let venueName = await page.textContent('a[href*="comeandtakeitlive.com"], a[href*="houseofrock"]');
+                // Venue name – appears as "Come and Take it Live" link on the page
+                let venueName = '';
+                try {
+                    venueName = await page.textContent('a[href*="comeandtakeitlive.com"], a[href*="house-of-rock"]');
+                } catch {
+                    // Ignore, we’ll try a fallback below
+                }
+
                 if (!venueName) {
-                    // Fallback: a link that looks like a venue name (no "Buy Tickets", no URL text, etc.)
-                    const venueCandidate = await page.$$eval('main a', (as) => {
+                    // Fallback: a link that looks like a short, title-ish name in the body
+                    const venueCandidate = await page.$$eval('body a', (as) => {
                         const badWords = ['Buy Tickets', 'HERE', 'SUBSCRIBE', 'Powered by'];
                         for (const a of as) {
                             const t = (a.textContent || '').trim();
                             if (!t) continue;
                             if (badWords.some((w) => t.includes(w))) continue;
-                            // Very naive, but usually venue links are short and title-cased
                             if (t.length < 40) return t;
                         }
                         return '';
@@ -94,22 +107,24 @@ Actor.main(async () => {
                 venueName = (venueName || '').trim();
 
                 // Artist block
-                // Pattern on these pages:
-                // "Come and Take It Productions presents…"
-                // HEADLINER
-                // SUPPORT 1
-                // SUPPORT 2
+                //
+                // Pattern on these pages (example):
+                // Come and Take It Productions
+                // SAVING VICE
+                // All Ages
+                //
+                // Tuesday, December 02
+                // Show: 7 pm
+                // $...
+                // Come and Take it Live
+                // Come and Take It Productions presents…
+                // SAVING VICE
+                // DISPOSITIONS
+                // DEAD THINGS
                 // ...
                 // www.comeandtakeitproductions.com
+                // ** Venue info, policies and rules ...
                 //
-                // Or:
-                // "Come and Take It Productions presents…"
-                // ATXMP SHOWCASE 2025
-                // Featuring…
-                // DARKNESS DIVIDED
-                // FUTURE GHOST
-                // ...
-
                 const presentsIndex = lines.findIndex((l) =>
                     l.toLowerCase().includes('presents')
                 );
@@ -117,11 +132,10 @@ Actor.main(async () => {
                 let artistLines = [];
 
                 if (presentsIndex >= 0) {
-                    // Collect lines after "presents…" until we hit the website link / venue info
+                    // Collect lines after "presents…" until footer-ish content
                     for (let i = presentsIndex + 1; i < lines.length; i++) {
                         const line = lines[i];
 
-                        // Stop at footer-ish content
                         const lower = line.toLowerCase();
                         if (lower.startsWith('www.')) break;
                         if (lower.includes('venue info')) break;
@@ -139,9 +153,7 @@ Actor.main(async () => {
                     artistLines = artistLines.slice(featuringIdx + 1);
                 }
 
-                // Sometimes the first line is just the event name again (“ATXMP SHOWCASE 2025”),
-                // and the real bands start after that. We don't strictly need to remove it,
-                // because we already have eventTitle. Optional cleanup:
+                // Sometimes the first line is just the event name again.
                 if (
                     artistLines.length > 1 &&
                     eventTitle &&
@@ -150,7 +162,7 @@ Actor.main(async () => {
                     artistLines = artistLines.slice(1);
                 }
 
-                // Final cleanup: kill any obviously non-band lines
+                // Final cleanup: remove non-band noise
                 artistLines = artistLines.filter((line) => {
                     const lower = line.toLowerCase();
                     if (lower.includes('all ages')) return false;
@@ -163,11 +175,10 @@ Actor.main(async () => {
                 });
 
                 if (artistLines.length === 0) {
-                    log.warning(`No artist lines parsed on ${eventUrl}. Layout may have changed.`);
+                    log.warning(`No artist lines parsed on ${eventUrl}. Layout may have changed or pattern didn't match.`);
                 }
 
-                // Flatten: one row per artist
-                const market = 'Austin, TX'; // Logical constant for this actor
+                const market = 'Austin, TX';
 
                 artistLines.forEach((artistName, index) => {
                     const role = index === 0 ? 'headliner' : 'support';
