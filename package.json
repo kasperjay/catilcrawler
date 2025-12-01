@@ -1,0 +1,16 @@
+{
+    "name": "come-and-take-it-calendar-scraper",
+    "version": "1.0.0",
+    "description": "Scrapes the Come And Take It Productions calendar and event pages and outputs one row per artist.",
+    "type": "module",
+    "main": "src/main.js",
+    "scripts": {
+      "start": "node src/main.js"
+    },
+    "dependencies": {
+      "apify": "^3.0.0",
+      "crawlee": "^3.0.0",
+      "playwright": "^1.48.0"
+    }
+  }
+  

@@ -1,0 +1,13 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Come & Take It Productions scraper output",
+    "description": "All artists (headliners and supporting acts) scraped from Come And Take It Productions event pages.",
+    "properties": {
+      "results": {
+        "title": "Results dataset",
+        "description": "Dataset items with one row per artist per event, including event metadata.",
+        "template": "{{links.apiDefaultDatasetUrl}}/items"
+      }
+    }
+  }
+  
