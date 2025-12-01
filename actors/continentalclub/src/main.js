@@ -1,81 +1,73 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
 
-// Embedded utility functions (same as other actors for consistency)
+// Utility function to determine if a string looks like an artist name
 function isLikelyArtistName(text) {
     if (!text || typeof text !== 'string') return false;
     
-    const cleanText = text.trim();
-    if (cleanText.length === 0) return false;
+    const cleaned = text.trim();
+    if (cleaned.length < 2 || cleaned.length > 60) return false;
     
-    // Exclude common promotional/junk patterns
-    const excludePatterns = [
-        // Social media links and platforms
-        /facebook\.com|instagram\.com|twitter\.com|tiktok|spotify|apple\s*music|youtube\.com/i,
-        /www\.|http|\.com|\.net|\.org/i,
+    // Enhanced exclusion patterns for Continental Club
+    const exclusionPatterns = [
+        // Navigation menu items
+        /^(welcome|about|shows|gallery|shop|home|contact|menu|navigation)$/i,
         
-        // VIP packages and merchandise
-        /vip|meet\s*and\s*greet|signed\s*poster|exclusive|laminate|lanyard|cinch\s*bag/i,
+        // Location references
+        /^(austin|houston|dallas|texas|tx)$/i,
         
-        // Contact info and addresses
-        /\b\d{5}\b/, // ZIP codes
-        /texas|tx\s*\d+|austin,?\s*tx/i,
-        /\d+\s*(studios?|suite|#\d+|sign\s*up)/i,
+        // Venue name
+        /continental\s*club/i,
         
-        // Promotional content
-        /sponsored\s*by|more\s*artists?\s*tba|meet\s*&\s*greet/i,
-        /tickets?|rsvp|info|details|buy\s*now/i,
+        // Common website elements
+        /^(events?|calendar|upcoming|schedule|tickets?|info|more)$/i,
         
-        // Generic venue/event terms
-        /^(venue|location|address|time|date|price|cost)$/i,
-        /^(doors?|show|event|concert|performance)$/i,
+        // Navigation elements
+        /^(next|previous|back|forward|close|open|click|button|link)$/i,
         
-        // Special characters that indicate non-artist content
-        /^[^a-zA-Z]*$/, // Only numbers/symbols
-        /@|#hashtag|\$\d+/,
+        // Generic UI elements  
+        /^(focus|button|submit|cancel|search|filter|sort)$/i,
         
-        // Long URLs or technical strings
-        /^https?:\/\/[^\s]+$/,
-        /\.html?$|\.php$|\.asp$/i
+        // Single characters or numbers
+        /^[a-z]$/i,
+        /^\d+$/,
+        
+        // Common non-artist phrases
+        /^(and more|see all|view all|show more|load more)$/i,
+        
+        // Date/time only
+        /^\d{1,2}[\/\-:]\d{1,2}/,
+        /^(am|pm|est|cst|pst)$/i,
+        
+        // Common promotional content
+        /buy\s*tickets?|purchase|order|book|reserve/i,
+        /(doors?|show)\s*(open|start)/i,
+        /age\s*limit|all\s*ages|\d+\+/i,
+        
+        // Website structure content
+        /copyright|rights?\s*reserved|privacy|terms/i,
+        /follow\s*us|social\s*media|facebook|twitter|instagram/i
     ];
     
-    // Check exclusion patterns
-    for (const pattern of excludePatterns) {
-        if (pattern.test(cleanText)) return false;
+    // Check against exclusion patterns
+    for (const pattern of exclusionPatterns) {
+        if (pattern.test(cleaned)) return false;
     }
     
-    // Require minimum alphabetic content (70% letters)
-    const alphabeticChars = (cleanText.match(/[a-zA-Z]/g) || []).length;
-    const alphabeticRatio = alphabeticChars / cleanText.length;
-    if (alphabeticRatio < 0.7) return false;
+    // Check for sufficient alphabetic content
+    const alphabeticCount = (cleaned.match(/[a-zA-Z]/g) || []).length;
+    const totalLength = cleaned.length;
+    if (alphabeticCount / totalLength < 0.6) return false;
     
-    // Limit numbers and special characters
-    const numberCount = (cleanText.match(/\d/g) || []).length;
-    const specialCharCount = (cleanText.match(/[^a-zA-Z0-9\s&'-]/g) || []).length;
-    
-    if (numberCount > cleanText.length * 0.3 || specialCharCount > cleanText.length * 0.2) {
-        return false;
-    }
-    
-    // Positive identification patterns
-    // Accept all-caps artist names (common for bands) but not too long
-    if (/^[A-Z\s&'-]{2,35}$/.test(cleanText)) return true;
-    
-    // Accept proper title case (First Letter Capitalized)
-    if (/^[A-Z][a-z]+(\s+[A-Z][a-z]*)*(\s+&\s+[A-Z][a-z]+)*$/.test(cleanText)) return true;
-    
-    // Accept mixed case with reasonable patterns
-    if (/^[A-Za-z][\w\s&'-]{1,50}$/.test(cleanText) && !/\d{2,}/.test(cleanText)) return true;
-    
-    return false;
+    return true;
 }
 
 function createEventRecord(artist, eventDate, eventTime, venue, eventUrl, description, price) {
     return {
-        artist: artist || 'Unknown Artist',
+        artist: artist || '',
         eventDate: eventDate || '',
         eventTime: eventTime || '',
-        venue: venue || 'Continental Club',
+        venue: venue || '',
         eventUrl: eventUrl || '',
         description: description || '',
         price: price || '',
@@ -83,13 +75,13 @@ function createEventRecord(artist, eventDate, eventTime, venue, eventUrl, descri
     };
 }
 
-function parseDate(dateStr) {
-    if (!dateStr) return '';
+function parseDate(dateText) {
+    if (!dateText) return '';
     
     try {
-        const date = new Date(dateStr);
+        const date = new Date(dateText);
         if (isNaN(date.getTime())) return '';
-        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        return date.toISOString().split('T')[0];
     } catch (error) {
         return '';
     }
@@ -97,96 +89,221 @@ function parseDate(dateStr) {
 
 function cleanText(text) {
     if (!text) return '';
-    return text.replace(/\\s+/g, ' ').trim();
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function extractDate(text) {
+    if (!text) return '';
+    const dateMatch = text.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2}|\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}|\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}/i);
+    return dateMatch ? dateMatch[0] : '';
+}
+
+function extractTime(text) {
+    if (!text) return '';
+    const timeMatch = text.match(/\b(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM)|\d{1,2}\s*(?:am|pm|AM|PM))\b/);
+    return timeMatch ? timeMatch[0] : '';
 }
 
 async function parseContinentalClubEvents(page) {
     console.log('Parsing Continental Club events...');
     
     // Wait for the page to load
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 30000 });
+    
+    // Debug: Check if page redirects to iframe
+    const currentUrl = page.url();
+    console.log(`Current URL after load: ${currentUrl}`);
+    
+    // Check for iframes
+    const iframes = await page.locator('iframe').all();
+    console.log(`Found ${iframes.length} iframes on page`);
+    
+    for (let i = 0; i < iframes.length; i++) {
+        const src = await iframes[i].getAttribute('src');
+        console.log(`Iframe ${i + 1} src: ${src}`);
+    }
+    
+    // Navigate to the Timely calendar directly if we detected iframes
+    if (iframes.length > 0) {
+        for (const iframe of iframes) {
+            const src = await iframe.getAttribute('src');
+            if (src && src.includes('timely.fun') && !src.includes('popup')) {
+                console.log(`Navigating to Timely calendar: ${src}`);
+                await page.goto(src);
+                await page.waitForLoadState('networkidle', { timeout: 30000 });
+                await page.waitForTimeout(3000); // Additional wait for calendar to render
+                break;
+            }
+        }
+    }
     
     const events = [];
     
     try {
-        // Look for event containers - we'll need to inspect the actual site structure
-        const eventElements = await page.locator('[class*="event"], [class*="show"], .calendar-event, .event-item, .show-item').all();
+        // The Continental Club calendar might be loaded dynamically or in a specific format
+        // Let's try multiple approaches to find events
         
-        console.log(`Found ${eventElements.length} potential event elements`);
+        // First, look for structured calendar or event listings
+        let eventElements = [];
         
-        for (const element of eventElements) {
-            try {
-                // Extract event information - these selectors will need to be adjusted based on actual site structure
-                const titleElement = element.locator('h1, h2, h3, h4, .title, .artist, .event-title, .show-title').first();
-                const dateElement = element.locator('.date, .event-date, .show-date, [class*="date"]').first();
-                const timeElement = element.locator('.time, .event-time, .show-time, [class*="time"]').first();
-                const descElement = element.locator('.description, .event-description, p').first();
-                const priceElement = element.locator('.price, .cost, .ticket, [class*="price"]').first();
-                const linkElement = element.locator('a').first();
-                
-                const title = await titleElement.textContent().catch(() => '');
-                const dateText = await dateElement.textContent().catch(() => '');
-                const timeText = await timeElement.textContent().catch(() => '');
-                const description = await descElement.textContent().catch(() => '');
-                const price = await priceElement.textContent().catch(() => '');
-                const eventUrl = await linkElement.getAttribute('href').catch(() => '');
-                
-                // Clean and validate the title as artist name
-                const cleanTitle = cleanText(title);
-                
-                if (isLikelyArtistName(cleanTitle)) {
-                    const eventDate = parseDate(dateText);
-                    const eventTime = cleanText(timeText);
-                    const eventDescription = cleanText(description);
-                    const eventPrice = cleanText(price);
-                    
-                    const fullUrl = eventUrl && eventUrl.startsWith('/') 
-                        ? `https://continentalclub.com${eventUrl}` 
-                        : eventUrl;
-                    
-                    const record = createEventRecord(
-                        cleanTitle,
-                        eventDate,
-                        eventTime,
-                        'Continental Club',
-                        fullUrl,
-                        eventDescription,
-                        eventPrice
-                    );
-                    
-                    events.push(record);
-                    console.log(`Added event: ${cleanTitle} on ${eventDate}`);
-                } else {
-                    console.log(`Filtered out non-artist content: "${cleanTitle}"`);
+        // For Timely calendar, try to find events with more specific parsing
+        eventElements = await page.locator('.timely-event').all();
+        
+        if (eventElements.length === 0) {
+            // Try other selectors
+            const eventSelectors = [
+                '[data-event-id]',
+                '.event-item', 
+                '.calendar-day-event',
+                '.event-listing',
+                '.event-row',
+                '.event-card',
+                '.calendar-event',
+                '.event'
+            ];
+            
+            for (const selector of eventSelectors) {
+                const elements = await page.locator(selector).all();
+                if (elements.length > 0) {
+                    console.log(`Found ${elements.length} elements with selector: ${selector}`);
+                    eventElements = elements;
+                    break;
                 }
-                
-            } catch (elementError) {
-                console.log(`Error processing event element: ${elementError.message}`);
             }
         }
         
-        // If no events found with the above selectors, try alternative approaches
-        if (events.length === 0) {
-            console.log('No events found with primary selectors, trying alternative approaches...');
-            
-            // Try looking for text that might be artist names
-            const textElements = await page.locator('h1, h2, h3, h4, h5, h6, .artist, .performer, strong, b').all();
-            
-            for (const element of textElements) {
-                try {
-                    const text = await element.textContent();
-                    const cleanedText = cleanText(text);
+        console.log(`Found ${eventElements.length} potential event elements`);
+        
+        // Debug: Let's see what we're actually finding
+        for (let i = 0; i < Math.min(5, eventElements.length); i++) {
+            const debugText = await eventElements[i].textContent().catch(() => '');
+            console.log(`Debug - Element ${i + 1}: ${debugText.substring(0, 50)}...`);
+        }
+        
+        // Process events with improved parsing for Timely calendar (limit to avoid timeout)
+        for (let i = 0; i < Math.min(eventElements.length, 10); i++) {
+            const element = eventElements[i];
+            try {
+                // Get full event data using more comprehensive extraction
+                const eventData = await element.evaluate(el => {
+                    const getText = (selector) => {
+                        const elem = el.querySelector(selector);
+                        return elem ? elem.textContent.trim() : '';
+                    };
                     
-                    if (isLikelyArtistName(cleanedText)) {
-                        // Try to find associated date/time information
-                        const parent = element.locator('..'); // Parent element
-                        const dateText = await parent.locator('[class*="date"], .date').textContent().catch(() => '');
-                        const timeText = await parent.locator('[class*="time"], .time').textContent().catch(() => '');
-                        
+                    // Try to extract structured data from Timely event
+                    let title = getText('.event-title') || getText('.title') || getText('h3') || getText('h4') || getText('.name');
+                    let time = getText('.time') || getText('.event-time') || getText('.start-time');
+                    let date = getText('.date') || getText('.event-date');
+                    
+                    // If no structured title, parse from full text
+                    const fullText = el.textContent.trim();
+                    
+                    if (!title && fullText) {
+                        // For Timely calendar format, often the text is like "7:00pm The Bluebonnets"
+                        const lines = fullText.split('\n').map(l => l.trim()).filter(l => l);
+                        for (const line of lines) {
+                            // Look for lines that don't start with time and contain artist names
+                            if (line.length > 5 && line.length < 100 && 
+                                !line.match(/^\d{1,2}:\d{2}(am|pm)?$/i) &&
+                                !line.match(/^(mon|tue|wed|thu|fri|sat|sun)/i) &&
+                                !line.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)) {
+                                
+                                // Extract artist name from time+artist format
+                                const timeArtistMatch = line.match(/^\d{1,2}:\d{2}(am|pm)?\s+(.+)$/i);
+                                if (timeArtistMatch) {
+                                    title = timeArtistMatch[2].trim();
+                                    if (!time) time = line.match(/^\d{1,2}:\d{2}(am|pm)?/i)?.[0] || '';
+                                    break;
+                                } else if (line.length > 5) {
+                                    title = line;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    return {
+                        title: title || '',
+                        time: time || '',
+                        date: date || '',
+                        fullText: fullText || ''
+                    };
+                });
+
+                console.log(`Processing event ${i + 1}:`, {
+                    title: eventData.title.substring(0, 30),
+                    time: eventData.time,
+                    fullText: eventData.fullText.substring(0, 50)
+                });
+                
+                // Skip if no meaningful content
+                if (!eventData.title && (!eventData.fullText || eventData.fullText.length < 5)) {
+                    continue;
+                }
+                
+                const artistName = eventData.title || eventData.fullText;
+                
+                // Skip navigation or non-event content  
+                if (!artistName || artistName.length < 3 || artistName.length > 200 ||
+                    !isLikelyArtistName(artistName)) {
+                    continue;
+                }
+                
+                // Create event object
+                const cleanedArtist = cleanText(artistName);
+                if (cleanedArtist.length > 2) {
+                    // Try to find an associated link
+                    let eventUrl = '';
+                    try {
+                        const linkElement = await element.locator('a').first();
+                        eventUrl = await linkElement.getAttribute('href') || '';
+                    } catch (e) {
+                        // No link found, use empty string
+                        eventUrl = '';
+                    }
+                    
+                    const fullUrl = eventUrl && eventUrl.startsWith('/') 
+                        ? `https://continentalclub.com${eventUrl}` 
+                        : eventUrl || '';
+                    
+                    const record = createEventRecord(
+                        cleanedArtist,
+                        eventData.date || extractDate(eventData.fullText) || '',
+                        eventData.time || extractTime(eventData.fullText) || '',
+                        'Continental Club',
+                        fullUrl,
+                        cleanText(eventData.fullText.substring(0, 100)),
+                        page.url()
+                    );
+                    
+                    events.push(record);
+                    console.log(`Added event: ${cleanedArtist}`);
+                }
+            } catch (elementError) {
+                // Continue with next element
+                console.log(`Error processing element: ${elementError.message}`);
+            }
+        }
+        
+        // If we still have very few events, try a text-based search as fallback
+        if (events.length < 2) {
+            console.log('Limited events found, trying fallback text search...');
+            const bodyText = await page.locator('body').textContent().catch(() => '');
+            
+            if (bodyText) {
+                // Look for band names that appear with dates
+                const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}[^0-9]*([^0-9\n\r]{10,50})/gi;
+                let match;
+                
+                while ((match = dateRegex.exec(bodyText)) !== null && events.length < 10) {
+                    const potentialArtist = cleanText(match[1]);
+                    if (potentialArtist && isLikelyArtistName(potentialArtist)) {
+                        const dateStr = match[0].split(/[^a-z0-9]/i)[0] + ' ' + match[0].split(/[^a-z0-9]/i)[1];
                         const record = createEventRecord(
-                            cleanedText,
-                            parseDate(dateText),
-                            cleanText(timeText),
+                            potentialArtist,
+                            parseDate(dateStr),
+                            '',
                             'Continental Club',
                             '',
                             '',
@@ -194,19 +311,16 @@ async function parseContinentalClubEvents(page) {
                         );
                         
                         events.push(record);
-                        console.log(`Added event from text search: ${cleanedText}`);
+                        console.log(`Added fallback event: ${potentialArtist}`);
                     }
-                } catch (error) {
-                    // Continue processing other elements
                 }
             }
         }
-        
     } catch (error) {
-        console.log(`Error parsing events: ${error.message}`);
+        console.error('Error parsing Continental Club events:', error);
     }
     
-    console.log(`Total events parsed: ${events.length}`);
+    console.log(`Total Continental Club events parsed: ${events.length}`);
     return events;
 }
 
@@ -221,7 +335,7 @@ console.log(`Starting Continental Club calendar scraper on: ${startUrl}`);
 
 const crawler = new PlaywrightCrawler({
     maxRequestsPerCrawl,
-    requestHandlerTimeoutSecs: 60,
+    requestHandlerTimeoutSecs: 120, // Increase timeout to 2 minutes
     
     async requestHandler({ page, request, log }) {
         log.info(`Processing: ${request.url}`);

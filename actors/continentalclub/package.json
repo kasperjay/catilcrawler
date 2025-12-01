@@ -1,6 +1,7 @@
 {
     "name": "continentalclub-crawler",
-    "version": "1.0.0",
+    "version": "1.0.9",
+    "type": "module",
     "description": "Continental Club calendar scraper",
     "main": "src/main.js",
     "scripts": {
