@@ -180,9 +180,38 @@ Actor.main(async () => {
 
                 const market = 'Austin, TX';
 
+                // ... we cleaned artistLines above ...
+
+                const market = 'Austin, TX';
+                
+                // Fallback: if we couldn't parse any artist lines, treat eventTitle as a single headliner.
+                if (artistLines.length === 0) {
+                    if (eventTitle) {
+                        log.warning(`No artist lines parsed on ${eventUrl}. Using eventTitle as single headliner.`);
+                        const record = {
+                            source: 'comeandtakeitproductions.com',
+                            eventUrl,
+                            eventTitle,
+                            eventDateText: dateLine,
+                            showTime: showLine.replace(/^show:\s*/i, '').trim() || '',
+                            doorsTime: doorsLine.replace(/^doors:\s*/i, '').trim() || '',
+                            priceText: priceLine,
+                            venueName,
+                            market,
+                            artistName: eventTitle,
+                            role: 'headliner',
+                        };
+                        Actor.pushData(record);
+                    } else {
+                        log.warning(`No artist lines and no eventTitle on ${eventUrl}. Skipping.`);
+                    }
+                    return; // don't try to loop artistLines
+                }
+                
+                // Normal case: we have a block of bands after "presents..."
                 artistLines.forEach((artistName, index) => {
                     const role = index === 0 ? 'headliner' : 'support';
-
+                
                     const record = {
                         source: 'comeandtakeitproductions.com',
                         eventUrl,
@@ -196,11 +225,10 @@ Actor.main(async () => {
                         artistName,
                         role,
                     };
-
+                
                     Actor.pushData(record);
                 });
-            }
-        },
+                
 
         failedRequestHandler({ request, log }) {
             log.error(`Request ${request.url} failed too many times.`);
