@@ -87,10 +87,8 @@ function splitMultiArtistTitle(title) {
             const artistName = match[1].trim();
             const timeFragment = normalizeInlineTime(match[2].replace(/\s+/g, '')) || formatTimeGuess(match[2]);
             results.push({ artist: artistName, eventTime: timeFragment });
-        } else {
-            // Fallback keep whole segment as artist
-            results.push({ artist: seg });
         }
+        // Skip segments without @time pattern - they're likely extra description/pricing text
     }
     return results;
 }

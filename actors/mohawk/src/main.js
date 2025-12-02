@@ -40,19 +40,19 @@ function parseTimesFromText(text) {
 function splitArtists(raw) {
     if (!raw) return [];
     let t = raw;
-    // Remove common boilerplate prefixes
+    // Remove common boilerplate prefixes and suffixes
     t = t.replace(/^\s*(?:mohawk(?:\s+austin)?\s+)?presents\b[:\-]?\s*/i, '');
     t = t.replace(/^\s*(?:resound\s+presents)\b[:\-]?\s*/i, '');
-    t = t.replace(/^\s*(?:promo\s+ent\s+productions?\s+presents?)\b[:\-]?\s*/i, '');
-    t = t.replace(/ at mohawk.*$/i, '');
+    t = t.replace(/\bat\s+mohawk(?:\s+austin)?.*$/i, '');
     t = t.replace(/\bexpired\b/ig, '');
     t = t.replace(/\bsold\s*out\b/ig, '');
-    t = t.replace(/:\s*[^-–—]+(tour|festival|night)\s*$/i, '');
+    t = t.replace(/\bget\s+tickets\b/ig, '');
+    t = t.replace(/:\s*[^-–—]+(tour|festival|night)[:\s].*/i, '');
     t = t.replace(/\[[^\]]+\]/g, '');
     t = t.replace(/\([^\)]+\)/g, '');
     // split by common separators
     const parts = t
-        .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*|,\s*(?:and\s+)?/i)
+        .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*|,\s*/i)
         .map(s => strip(s))
         .filter(Boolean);
     return [...new Set(parts)];
@@ -81,18 +81,16 @@ function isLikelyArtist(name) {
     const s = name.trim();
     if (s.length < 2 || s.length > 80) return false;
     const lower = s.toLowerCase();
-    // Strict bans: venue, meta, non-concert
-    const strictBanned = ['mohawk austin', 'get tickets', 'buy tickets', 'sold out', 'expired', 'all ages', 'doors:', 'show:', 'comandtakeitproductions'];
-    if (strictBanned.some(w => lower.includes(w))) return false;
-    // Conditional bans: only if whole string or paired with non-concert words
-    if (lower === 'mohawk' || lower === 'outdoor' || lower === 'indoor' || lower === 'tickets') return false;
-    if (/\b(vendor|farmers)\s+market\b/i.test(s)) return false;
-    if (/[\w]+\.(com|net|org)/i.test(s)) return false;
-    if (/@/.test(s) && !/^[A-Z]/.test(s)) return false; // allow artist names starting with caps that contain @
-    // Avoid generic fragments
-    if (/\b(hope|individuals|to\s+individuals|ages\s+show|presents\s*$|at\s+mohawk)\b/i.test(s)) return false;
-    // Filter out pure numbers or dates
-    if (/^\d+$/.test(s) || /^\d{1,2}\/\d{1,2}/.test(s)) return false;
+    // Strict banned phrases (full match or contains)
+    const strictBanned = ['mohawk', 'mohawk austin', 'tickets', 'sold out', 'expired', 'all ages', 'doors:', 'show:', 'get tickets', 'buy tickets'];
+    if (strictBanned.some(w => lower === w || lower.includes(w))) return false;
+    // Keyword fragments that indicate non-artist text
+    if (/^(and|or|the|a|an)\s+(hope|individuals|ages|benefit|to|for|from|with|at)\b/i.test(s)) return false;
+    if (/\b(support|presents|presented by|sponsored by)\s+by\b/i.test(s)) return false;
+    if (/[\w]+\.(com|net|org|io)/i.test(s)) return false;
+    if (/@/.test(s) && !/[A-Za-z]/.test(s.split('@')[0])) return false; // allow band names with @
+    // Avoid standalone venue/stage names
+    if (/^(outdoor|indoor|stage|main stage|patio|rooftop)$/i.test(s)) return false;
     return true;
 }
 
@@ -130,30 +128,17 @@ const crawler = new PlaywrightCrawler({
 
             const fromList = listArtistsByUrl.get(url) || [];
             const parsed = parseArtists({ title, subtitle, pageText: '' });
-            
-            // Try dedicated support/lineup selectors
-            const supportText = strip((await page.textContent('.support, .openers, .lineup, .artists, .event-lineup').catch(() => '')) || '');
-            const fromSupport = splitArtists(supportText);
-            
-            // Try to detect support from hero section with 'with' keyword
+            // Try to detect support from a compact hero section
             const heroText = strip((await page.textContent('main, article, .single-event').catch(() => '')) || '').slice(0, 1200);
             const withMatch = (heroText.match(/\b(?:with|w\/)\s+([A-Za-z0-9][\w\s&'./+\-]+(?:\s*,\s*[A-Za-z0-9][\w\s&'./+\-]+)*)/i) || [])[1] || '';
             const fromHero = splitArtists(withMatch);
-            
             // Anchor-based hints (often artist names are linked)
             const anchorHints = await page.$$eval('main a, article a, .single-event a', as => as
                 .map(a => (a.textContent || '').trim())
-                .filter(t => t && !/ticket|buy|eventim|mohawk|share|facebook|twitter|instagram/i.test(t) && t.length >= 2 && t.length <= 80));
+                .filter(t => t && !/ticket|buy|eventim|mohawk/i.test(t) && t.length <= 60));
             const fromAnchors = splitArtists(anchorHints.join(', '));
-            
-            // Merge all sources: prefer listing, then add detail-only artists
-            const combined = [...fromList, ...parsed, ...fromSupport, ...fromHero, ...fromAnchors].filter(isLikelyArtist);
+            const combined = [...fromList, ...parsed, ...fromHero, ...fromAnchors].filter(isLikelyArtist);
             const artists = [...new Set(combined)];
-            
-            if (artists.length === 0) {
-                log.warning(`No valid artists found for ${url}`);
-                return;
-            }
             const eventDate = parseDateFromText(bodyText);
             const { showTime, doorsTime } = parseTimesFromText(bodyText);
             const price = (bodyText.match(/\$\d+(?:\.\d{2})?/g) || []).join(', ') || (bodyText.match(/free|sold out/i) || [''])[0];
