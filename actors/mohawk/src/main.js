@@ -73,45 +73,60 @@ const crawler = new PlaywrightCrawler({
         await page.goto(startUrl, { waitUntil: 'networkidle' });
         await page.waitForTimeout(1000);
 
-        const rows = await page.$$eval('a[href*="/event/?id="]', (anchors) => {
-            const seen = new Set();
-            const out = [];
-            for (const a of anchors) {
-                const url = a.getAttribute('href') || '';
-                if (!url || seen.has(url)) continue;
-                seen.add(url);
-                const title = (a.textContent || '').trim();
-                const container = a.closest('article, section, div') || a.parentElement;
-                const text = (container?.innerText || '').replace(/\s+/g, ' ').trim();
-                const h2 = container?.querySelector('h2 a[href*="/event/?id="]');
-                const subtitle = h2 && h2 !== a ? (h2.textContent || '').trim() : '';
-                out.push({ url, title, subtitle, text });
+        const seenUrls = new Set();
+
+        async function harvest() {
+            const rows = await page.$$eval('a[href*="/event/?id="]', (anchors) => {
+                const out = [];
+                for (const a of anchors) {
+                    const url = a.getAttribute('href') || '';
+                    const title = (a.textContent || '').trim();
+                    const container = a.closest('article, section, div') || a.parentElement;
+                    const text = (container?.innerText || '').replace(/\s+/g, ' ').trim();
+                    const h2 = container?.querySelector('h2 a[href*="/event/?id="]');
+                    const subtitle = h2 && h2 !== a ? (h2.textContent || '').trim() : '';
+                    out.push({ url, title, subtitle, text });
+                }
+                return out;
+            });
+
+            let newCount = 0;
+            for (const r of rows) {
+                if (!r.url || seenUrls.has(r.url)) continue;
+                if (items.length >= maxEvents) break;
+                seenUrls.add(r.url);
+                const dateLine = r.text.replace(r.title, '').replace(r.subtitle, '').trim();
+                const stageMatch = dateLine.match(/\bINDOOR|OUTDOOR\b/i);
+                const stage = stageMatch ? (stageMatch[0].toUpperCase() === 'INDOOR' ? 'Indoor' : 'Outdoor') : 'Mohawk Austin';
+                const priceText = (dateLine.match(/FREE|SOLD OUT|GET TICKETS/i) || [])[0] || '';
+                items.push(buildItem({ title: r.title, subtitle: r.subtitle, dateLine, url: r.url, stage, priceText }));
+                newCount++;
             }
-            return out;
-        });
-
-        if (!rows.length) {
-            log.warning('No event anchors found on page.');
+            return newCount;
         }
 
-        for (const r of rows) {
+        await harvest();
+
+        // Click SHOW ME MORE until exhausted or maxEvents reached
+        for (let i = 0; i < 25; i++) { // hard cap to prevent infinite loop
             if (items.length >= maxEvents) break;
-            const dateLine = r.text.replace(r.title, '').replace(r.subtitle, '').trim();
-            const stageMatch = dateLine.match(/\bINDOOR|OUTDOOR\b/i);
-            const stage = stageMatch ? (stageMatch[0].toUpperCase() === 'INDOOR' ? 'Indoor' : 'Outdoor') : 'Mohawk Austin';
-            const priceText = (dateLine.match(/FREE|SOLD OUT|GET TICKETS/i) || [])[0] || '';
-
-            items.push(buildItem({
-                title: r.title,
-                subtitle: r.subtitle,
-                dateLine,
-                url: r.url,
-                stage,
-                priceText,
-            }));
+            const button = await page.$('text=SHOW ME MORE');
+            if (!button) break;
+            const before = items.length;
+            await Promise.all([
+                button.click(),
+                page.waitForLoadState('networkidle').catch(() => {}),
+            ]);
+            await page.waitForTimeout(800);
+            const added = await harvest();
+            log.info(`Pagination click ${i + 1}: added ${added} new events (total ${items.length})`);
+            if (items.length === before) {
+                // no change after click; break to avoid looping
+                break;
+            }
         }
 
-        log.info(`Collected ${items.length} items from homepage`);
+        log.info(`Collected ${items.length} items after pagination`);
     },
 });
 
