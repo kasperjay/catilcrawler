@@ -1,0 +1,17 @@
+{
+  "name": "hotelvegas-crawler",
+  "version": "1.0.0",
+  "description": "Scrapes events from Hotel Vegas",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.0.0",
+    "crawlee": "^3.0.0",
+    "playwright": "^1.57.0"
+  },
+  "author": "Calendar Crawlers",
+  "license": "MIT"
+}

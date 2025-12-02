@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "3ten-calendar-scraper",
+  "title": "ACL Live at 3TEN Calendar Scraper",
+  "description": "Scrapes upcoming events from ACL Live at 3TEN events page",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "Claude Sonnet 4.5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}

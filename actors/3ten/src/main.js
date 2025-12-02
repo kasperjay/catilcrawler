@@ -50,12 +50,15 @@ function splitArtists(raw) {
     t = t.replace(/\bexpired\b/ig, '');
     t = t.replace(/\bsold\s*out\b/ig, '');
     t = t.replace(/\bget\s+tickets\b/ig, '');
-    t = t.replace(/:\s*[^-–—]+(tour|festival|night)[:\s].*/i, '');
-    t = t.replace(/\[[^\]]+\]/g, '');
-    t = t.replace(/\([^\)]+\)/g, '');
-    // split by common separators
+    // Remove tour/subtitle descriptions after colons
+    t = t.replace(/:\s*[^-–—]+(tour|festival|night|show).*$/i, '');
+    // Remove descriptive text in parentheses (often Tribute info, etc)
+    t = t.replace(/\([^\)]*(?:tribute|band|tour)[^\)]*\)/gi, '');
+    // Remove "Tribute to..." text that's not part of the artist name
+    t = t.replace(/^Tribute to\s+.*/i, '');
+    // split by common separators but be conservative with commas
     const parts = t
-        .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*|,\s*/i)
+        .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*/i)
         .map(s => strip(s))
         .filter(Boolean);
     return [...new Set(parts)];
@@ -69,6 +72,16 @@ function isLikelyArtist(name) {
     // Banned phrases
     const banned = ['acl live', '3ten', 'tickets', 'sold out', 'expired', 'get tickets', 'more info'];
     if (banned.some(w => lower === w || lower.includes(w))) return false;
+    // Filter out descriptive text that's clearly not an artist name
+    if (/^(the|and|or|a|an)$/i.test(s)) return false;
+    if (/^(tribute|tour|show|night|presents?)$/i.test(s)) return false;
+    // Filter out overly descriptive phrases
+    if (lower.includes('tribute to') || lower.includes('passion of') || lower.includes('legends of')) return false;
+    if (lower.includes('fire and ') || lower.includes('most iconic')) return false;
+    // Filter out text with dates or weekdays (likely event descriptions)
+    if (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s)) return false;
+    // Filter out COVID/cancellation text
+    if (lower.includes('covid') || lower.includes('cancel')) return false;
     // Avoid standalone stage/venue names
     if (/^(stage|venue|theater)$/i.test(s)) return false;
     return true;
