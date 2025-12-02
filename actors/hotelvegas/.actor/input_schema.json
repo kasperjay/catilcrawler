@@ -1,0 +1,37 @@
+{
+  "title": "Hotel Vegas Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Start URL",
+      "type": "string",
+      "description": "Hotel Vegas calendar page URL",
+      "default": "https://texashotelvegas.com/calendar/",
+      "prefill": "https://texashotelvegas.com/calendar/",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of events to collect (0 = unlimited)",
+      "default": 500,
+      "minimum": 0
+    },
+    "maxConcurrency": {
+      "title": "Max Concurrency",
+      "type": "integer",
+      "description": "Maximum parallel pages (lower for Hotel Vegas to avoid rate limiting)",
+      "default": 3,
+      "minimum": 1
+    },
+    "requestHandlerTimeoutSecs": {
+      "title": "Request Handler Timeout (secs)",
+      "type": "integer",
+      "description": "Seconds before a page processing is aborted",
+      "default": 120,
+      "minimum": 30
+    }
+  },
+  "required": ["startUrl"]
+}

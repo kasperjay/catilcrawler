@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "hotelvegas-calendar-scraper",
+  "title": "Hotel Vegas Calendar Scraper",
+  "description": "Scrapes upcoming events from Hotel Vegas with clean artist names and supporting acts with set times",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "Claude Sonnet 4.5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}

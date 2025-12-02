@@ -37,26 +37,26 @@ function parseDoorsTime(text) {
 function parseSetTimes(text) {
     if (!text) return [];
     // Pattern: "10pm – Artist Name" or "10:45pm – Artist Name"
-    // Need to look line by line to avoid capturing too much
-    const lines = text.split(/\n/).map(l => l.trim());
-    const matches = [];
+    // The times are typically in a continuous block, not on separate lines
+    // Example: "Doors at 9pm10pm – A.L. West10:45pm – Amelia's Best Friend11:30pm – Elnuh"
     
-    for (const line of lines) {
-        // Match pattern: time followed by dash/hyphen and artist name
-        const regex = /^(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*[–\-—]\s*(.+?)$/i;
-        const match = line.match(regex);
-        if (match) {
-            const time = match[1].toLowerCase().replace(/\s+/g, ' ').trim();
-            let artist = strip(match[2]);
-            
-            // Clean up the artist name further
-            // Remove anything after common stop words
-            artist = artist.split(/\s+(?:doors|show|where|cost|rsvp|subscribe|email|post navigation)/i)[0];
-            artist = strip(artist);
-            
-            if (artist && artist.length > 1 && artist.length < 100 && !isNonArtist(artist)) {
-                matches.push({ time, artist });
-            }
+    const matches = [];
+    // Match all occurrences of time + dash + artist name
+    // Use lookahead to stop before the next time pattern
+    const regex = /(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*[–\-—]\s*([^0-9]+?)(?=\d{1,2}(?::\d{2})?\s*(?:am|pm)|$)/gi;
+    
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        const time = match[1].toLowerCase().replace(/\s+/g, ' ').trim();
+        let artist = strip(match[2]);
+        
+        // Clean up the artist name
+        // Stop at common boundary words
+        artist = artist.split(/\s*(?:\b(?:doors|show|where|cost|rsvp|subscribe|when|plus)\b)/i)[0];
+        artist = strip(artist);
+        
+        if (artist && artist.length > 1 && artist.length < 100 && !isNonArtist(artist)) {
+            matches.push({ time, artist });
         }
     }
     return matches;
@@ -83,14 +83,12 @@ function isNonArtist(name) {
 function cleanArtistName(name) {
     if (!name) return '';
     let cleaned = strip(name);
-    // Remove tour/production info in parentheses
-    cleaned = cleaned.replace(/\s*\([^)]*(?:tour|presents|production)[^)]*\)/gi, '');
-    // Remove common suffixes
-    cleaned = cleaned.replace(/\s*\((?:FKA|aka|formerly)\s+[^)]+\)/gi, '');
+    // Remove all parenthetical information (tour names, show types, etc.)
+    cleaned = cleaned.replace(/\s*\([^)]*\)/gi, '');
+    // Also handle cases where opening paren exists but no closing paren
+    cleaned = cleaned.replace(/\s*\([^)]*$/gi, '');
     // Remove Instagram/social handles at the end
     cleaned = cleaned.replace(/\s*[@#]\w+\s*$/gi, '');
-    // Remove "of BAND" references but keep the main name
-    cleaned = cleaned.replace(/\s*\(of\s+[^)]+\)/gi, '');
     return strip(cleaned);
 }
 
