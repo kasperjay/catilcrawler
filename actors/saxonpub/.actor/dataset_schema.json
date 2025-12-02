@@ -1,0 +1,77 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "artist": {
+      "type": "string",
+      "title": "Artist/Band Name"
+    },
+    "eventDate": {
+      "type": "string", 
+      "title": "Event Date"
+    },
+    "eventTime": {
+      "type": "string",
+      "title": "Event Time"
+    },
+    "venue": {
+      "type": "string",
+      "title": "Venue"
+    },
+    "eventUrl": {
+      "type": "string",
+      "title": "Event URL"
+    },
+    "description": {
+      "type": "string"
+    },
+    "price": {
+      "type": "string",
+      "title": "Ticket Price"
+    },
+    "scrapedAt": {
+      "type": "string",
+      "title": "Scraped At"
+    }
+  },
+  "views": {
+    "overview": {
+      "title": "Overview",
+      "transformation": {
+        "fields": ["artist", "eventDate", "eventTime", "venue", "eventUrl", "description", "price", "scrapedAt"]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "artist": {
+            "label": "Artist/Band",
+            "format": "text"
+          },
+          "eventDate": {
+            "label": "Date", 
+            "format": "text"
+          },
+          "eventTime": {
+            "label": "Time",
+            "format": "text"
+          },
+          "venue": {
+            "label": "Venue",
+            "format": "text"
+          },
+          "eventUrl": {
+            "label": "Event Link",
+            "format": "link"
+          },
+          "description": {
+            "label": "Description",
+            "format": "text"
+          },
+          "price": {
+            "label": "Price",
+            "format": "text"
+          }
+        }
+      }
+    }
+  }
+}

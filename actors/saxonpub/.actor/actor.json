@@ -1,0 +1,16 @@
+{
+  "actorSpecification": 1,
+  "name": "saxon-pub-calendar-scraper",
+  "title": "Saxon Pub Calendar Scraper",
+  "description": "Scrapes upcoming events from Saxon Pub (Austin, TX) events calendar",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "Claude Sonnet 4"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "changelog": "./CHANGELOG.md",
+  "storages": {}
+}

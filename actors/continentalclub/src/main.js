@@ -6,7 +6,7 @@ function isLikelyArtistName(text) {
     if (!text || typeof text !== 'string') return false;
     
     const cleaned = text.trim();
-    if (cleaned.length < 2 || cleaned.length > 60) return false;
+    if (cleaned.length < 3 || cleaned.length > 80) return false;
     
     // Enhanced exclusion patterns for Continental Club
     const exclusionPatterns = [
@@ -181,7 +181,7 @@ async function parseContinentalClubEvents(page) {
         }
         
         // Process events with improved parsing for Timely calendar (limit to avoid timeout)
-        for (let i = 0; i < Math.min(eventElements.length, 10); i++) {
+        for (let i = 0; i < Math.min(eventElements.length, 20); i++) {
             const element = eventElements[i];
             try {
                 // Get full event data using more comprehensive extraction
@@ -204,7 +204,7 @@ async function parseContinentalClubEvents(page) {
                         const lines = fullText.split('\n').map(l => l.trim()).filter(l => l);
                         for (const line of lines) {
                             // Look for lines that don't start with time and contain artist names
-                            if (line.length > 5 && line.length < 100 && 
+                            if (line.length > 5 && line.length < 200 && 
                                 !line.match(/^\d{1,2}:\d{2}(am|pm)?$/i) &&
                                 !line.match(/^(mon|tue|wed|thu|fri|sat|sun)/i) &&
                                 !line.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)) {
@@ -242,7 +242,59 @@ async function parseContinentalClubEvents(page) {
                     continue;
                 }
                 
-                const artistName = eventData.title || eventData.fullText;
+                let artistName = eventData.title || eventData.fullText;
+                
+                // Clean up artist names - remove set times and extract multiple artists
+                if (artistName) {
+                    // Remove set times like "@10pm", "@12am", etc.
+                    artistName = artistName.replace(/@\d{1,2}(:\d{2})?(am|pm)/gi, '');
+                    
+                    // Handle multiple artists separated by commas
+                    // Example: "James McMurtry, Dustin Welch" -> extract both
+                    const multipleArtists = artistName.split(/,\s*(?![^@]*@)/);
+                    
+                    if (multipleArtists.length > 1) {
+                        // Process each artist separately
+                        for (const individualArtist of multipleArtists) {
+                            const cleanIndividualArtist = cleanText(individualArtist.trim());
+                            
+                            if (cleanIndividualArtist && cleanIndividualArtist.length >= 3 && 
+                                cleanIndividualArtist.length <= 200 &&
+                                isLikelyArtistName(cleanIndividualArtist)) {
+                                
+                                // Try to find an associated link
+                                let eventUrl = '';
+                                try {
+                                    const linkElement = await element.locator('a').first();
+                                    eventUrl = await linkElement.getAttribute('href') || '';
+                                } catch (e) {
+                                    eventUrl = '';
+                                }
+                                
+                                const fullUrl = eventUrl && eventUrl.startsWith('/') 
+                                    ? `https://continentalclub.com${eventUrl}` 
+                                    : eventUrl || '';
+                                
+                                const record = createEventRecord(
+                                    cleanIndividualArtist,
+                                    eventData.date || extractDate(eventData.fullText) || '',
+                                    eventData.time || extractTime(eventData.fullText) || '',
+                                    'Continental Club',
+                                    fullUrl,
+                                    cleanText(eventData.fullText.substring(0, 100)),
+                                    ''
+                                );
+                                
+                                events.push(record);
+                                console.log(`Added individual artist: ${cleanIndividualArtist}`);
+                            }
+                        }
+                        continue; // Skip the single artist processing below
+                    }
+                    
+                    // Clean single artist name
+                    artistName = cleanText(artistName.trim());
+                }
                 
                 // Skip navigation or non-event content  
                 if (!artistName || artistName.length < 3 || artistName.length > 200 ||
@@ -250,7 +302,7 @@ async function parseContinentalClubEvents(page) {
                     continue;
                 }
                 
-                // Create event object
+                // Create event object for single artist
                 const cleanedArtist = cleanText(artistName);
                 if (cleanedArtist.length > 2) {
                     // Try to find an associated link
@@ -287,31 +339,51 @@ async function parseContinentalClubEvents(page) {
         }
         
         // If we still have very few events, try a text-based search as fallback
-        if (events.length < 2) {
+        if (events.length < 5) {
             console.log('Limited events found, trying fallback text search...');
             const bodyText = await page.locator('body').textContent().catch(() => '');
             
             if (bodyText) {
-                // Look for band names that appear with dates
-                const dateRegex = /(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}[^0-9]*([^0-9\n\r]{10,50})/gi;
+                // Look for time + artist patterns in the text
+                const timeArtistRegex = /\d{1,2}:\d{2}(am|pm)?\s+([A-Z][a-zA-Z\s&\-']{4,50})/gi;
                 let match;
                 
-                while ((match = dateRegex.exec(bodyText)) !== null && events.length < 10) {
-                    const potentialArtist = cleanText(match[1]);
-                    if (potentialArtist && isLikelyArtistName(potentialArtist)) {
-                        const dateStr = match[0].split(/[^a-z0-9]/i)[0] + ' ' + match[0].split(/[^a-z0-9]/i)[1];
-                        const record = createEventRecord(
-                            potentialArtist,
-                            parseDate(dateStr),
-                            '',
-                            'Continental Club',
-                            '',
-                            '',
-                            ''
-                        );
+                while ((match = timeArtistRegex.exec(bodyText)) !== null && events.length < 25) {
+                    let potentialArtist = cleanText(match[2]);
+                    
+                    // Clean up artist name - remove set times
+                    potentialArtist = potentialArtist.replace(/@\d{1,2}(:\d{2})?(am|pm)/gi, '');
+                    
+                    // Handle multiple artists in one match
+                    const multipleArtists = potentialArtist.split(/,\s*(?![^@]*@)/);
+                    
+                    for (const individualArtist of multipleArtists) {
+                        const cleanIndividualArtist = cleanText(individualArtist.trim());
                         
-                        events.push(record);
-                        console.log(`Added fallback event: ${potentialArtist}`);
+                        if (cleanIndividualArtist && cleanIndividualArtist.length >= 4 && 
+                            cleanIndividualArtist.length <= 60 &&
+                            isLikelyArtistName(cleanIndividualArtist)) {
+                            
+                            // Check if we already have this artist to avoid duplicates
+                            const isDuplicate = events.some(event => 
+                                event.artist.toLowerCase() === cleanIndividualArtist.toLowerCase()
+                            );
+                            
+                            if (!isDuplicate) {
+                                const record = createEventRecord(
+                                    cleanIndividualArtist,
+                                    '', // Date extraction from context would be complex
+                                    match[0].match(/\d{1,2}:\d{2}(am|pm)?/i)?.[0] || '',
+                                    'Continental Club',
+                                    '',
+                                    cleanText(match[0].substring(0, 100)),
+                                    ''
+                                );
+                                
+                                events.push(record);
+                                console.log(`Added fallback event: ${cleanIndividualArtist}`);
+                            }
+                        }
                     }
                 }
             }
@@ -335,7 +407,7 @@ console.log(`Starting Continental Club calendar scraper on: ${startUrl}`);
 
 const crawler = new PlaywrightCrawler({
     maxRequestsPerCrawl,
-    requestHandlerTimeoutSecs: 120, // Increase timeout to 2 minutes
+    requestHandlerTimeoutSecs: 60, // Set to 1 minute to prevent hanging
     
     async requestHandler({ page, request, log }) {
         log.info(`Processing: ${request.url}`);

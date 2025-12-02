@@ -1,0 +1,23 @@
+{
+  "title": "Saxon Pub Calendar Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Start URL",
+      "type": "string",
+      "description": "The URL to start scraping from",
+      "default": "https://thesaxonpub.com/events/",
+      "prefill": "https://thesaxonpub.com/events/",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Maximum Events",
+      "type": "integer",
+      "description": "Maximum number of events to scrape (0 = unlimited)",
+      "default": 50,
+      "minimum": 0
+    }
+  },
+  "required": ["startUrl"]
+}
