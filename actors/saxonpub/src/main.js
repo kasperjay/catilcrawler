@@ -1,353 +1,128 @@
 import { Actor } from 'apify';
-import { PlaywrightCrawler } from 'crawlee';
 
-// Helper functions
-function createEventRecord(artist, date, time, venue, url, description, price) {
-    return {
-        artist: artist || '',
-        eventDate: date || '',
-        eventTime: time || '',
-        venue: venue || 'Saxon Pub',
-        eventUrl: url || '',
-        description: description || '',
-        price: price || '',
-        scrapedAt: new Date().toISOString()
-    };
+const API_URL = 'https://thesaxonpub.com/wp-json/tribe/events/v1/events';
+
+function formatDateForDisplay(dateString) {
+    if (!dateString) return '';
+    const [datePart] = dateString.split(' ');
+    const [year, month, day] = datePart.split('-').map(Number);
+    if (!year || !month || !day) return '';
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function parseDate(dateString) {
-    try {
-        if (!dateString) return '';
-        
-        // Handle formats like "December 1 @ 6:00 pm - 7:30 pm" or "December 1, 2025"
-        const dateMatch = dateString.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})/);
-        if (dateMatch) {
-            const currentYear = new Date().getFullYear();
-            return `${dateMatch[1]} ${dateMatch[2]}, ${currentYear}`;
-        }
-        
-        // Handle "Dec 1" format
-        const shortDateMatch = dateString.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})/);
-        if (shortDateMatch) {
-            const currentYear = new Date().getFullYear();
-            return `${shortDateMatch[1]} ${shortDateMatch[2]}, ${currentYear}`;
-        }
-        
-        return '';
-    } catch (error) {
-        return '';
-    }
+function formatTimeForDisplay(dateString) {
+    if (!dateString) return '';
+    const [, timePart] = dateString.split(' ');
+    if (!timePart) return '';
+    const [hourStr, minute] = timePart.split(':');
+    const hour = Number(hourStr);
+    if (Number.isNaN(hour) || Number.isNaN(Number(minute))) return '';
+    const hour12 = (hour % 12) || 12;
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    return `${hour12}:${minute} ${ampm}`;
 }
 
-function parseTime(timeString) {
-    try {
-        if (!timeString) return '';
-        
-        // Extract time from formats like "6:00 pm - 7:30 pm" or "@ 6:00 pm"
-        const timeMatch = timeString.match(/(\d{1,2}:\d{2}\s*(?:am|pm|AM|PM))/);
-        if (timeMatch) {
-            return timeMatch[1].trim();
-        }
-        
-        return timeString.trim();
-    } catch (error) {
-        return '';
-    }
+function stripHtml(text = '') {
+    return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function isLikelyArtistName(text) {
-    if (!text || typeof text !== 'string') return false;
-    
-    const cleaned = text.toLowerCase().trim();
-    
-    // Skip common non-artist phrases
-    const skipPatterns = [
-        /^(home|about|events|calendar|contact|shop|gallery|menu|news)$/,
-        /^(welcome|subscribe|newsletter|social|facebook|twitter|instagram)$/,
-        /^(get tickets|buy tickets|more info|click here|read more|private events|merch|info|faqs|booking)$/,
-        /^(free show|tips appreciated|admission|cover|charge|find events)$/,
-        /^(sunday|monday|tuesday|wednesday|thursday|friday|saturday)$/,
-        /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/,
-        /^\d+\s*(events|pm|am|:|@)/,
-        /^(previous|next|current|month|year|this month|select date|search)$/,
-        /^(skip to content|enter keyword|site by)/,
-        /^(list|month)$/,
-        /display\s*:\s*none/,
-        /tec-events/,
-        /elementor/
-    ];
-    
-    for (const pattern of skipPatterns) {
-        if (pattern.test(cleaned)) return false;
+function normalizePrice(event) {
+    if (event.cost) {
+        return stripHtml(event.cost).replace('&#036;', '$').trim();
     }
-    
-    // Must be reasonable length
-    if (cleaned.length < 5 || cleaned.length > 80) return false;
-    
-    // Likely artist indicators
-    const artistIndicators = [
-        /band$/,
-        /trio$/,
-        /quartet$/,
-        /ensemble$/,
-        /orchestra$/,
-        /acoustic/,
-        /lounge/,
-        /show$/,
-        /music/,
-        /blues/,
-        /^[A-Z][a-z]+ [A-Z]/  // Proper names like "John Smith"
-    ];
-    
-    for (const indicator of artistIndicators) {
-        if (indicator.test(cleaned)) return true;
+    const values = event.cost_details?.values;
+    if (Array.isArray(values) && values.length > 0) {
+        return `$${values[0]}`;
     }
-    
-    // If it contains music-related words or proper capitalization, likely an artist
-    // Allow proper names that look like artists (First Last or descriptive names)
-    if (/^[A-Z][a-z]+ [A-Z]/.test(text)) return true; // "John Smith" format
-    if (/^The [A-Z]/.test(text)) return true; // "The Something" format
-    if (/^[A-Z][a-z]+$/.test(text) && text.length > 5) return true; // Single proper names
-    
-    return false;
-}
-
-function cleanText(text) {
-    if (!text) return '';
-    return text.replace(/\s+/g, ' ').trim();
-}
-
-function extractPrice(text) {
-    if (!text) return '';
-    
-    // Look for price patterns
-    const priceMatch = text.match(/\$\d+\.?\d*/);
-    if (priceMatch) return priceMatch[0];
-    
-    // Look for free indicators
-    if (/free|no cover|no charge|tips appreciated/i.test(text)) {
-        return 'FREE';
-    }
-    
     return '';
 }
 
-async function parseSaxonPubEvents(page) {
-    console.log('Parsing Saxon Pub events...');
-    
-    // Wait for the page to load
-    await page.waitForLoadState('networkidle', { timeout: 30000 });
-    
+function createEventRecord(event) {
+    return {
+        artist: event.title || '',
+        eventDate: formatDateForDisplay(event.start_date),
+        eventTime: formatTimeForDisplay(event.start_date),
+        venue: event.venue?.venue || 'Saxon Pub',
+        eventUrl: event.url || '',
+        description: stripHtml(event.description || event.excerpt || ''),
+        price: normalizePrice(event),
+        scrapedAt: new Date().toISOString(),
+    };
+}
+
+function buildDateParam(date, endOfDay = false) {
+    const pad = (val) => String(val).padStart(2, '0');
+    const base = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    return `${base} ${endOfDay ? '23:59:59' : '00:00:00'}`;
+}
+
+async function fetchEvents(maxEvents) {
     const events = [];
-    
-    try {
-        // Try to find specific calendar event elements first
-        let eventElements = [];
-        
-        // Look for tribe events (Saxon Pub likely uses The Events Calendar plugin)
-        eventElements = await page.locator('.tribe-events-calendar-month__calendar-event, .tribe-events-list-event, .tribe-common-g-row').all();
-        if (eventElements.length > 0) {
-            console.log(`Found ${eventElements.length} tribe calendar events`);
-        } else {
-            // Try other event-specific selectors
-            const eventSelectors = [
-                '.tribe-event',
-                '.event',
-                'article[class*="event"]',
-                '.calendar-event',
-                '[class*="tribe-events"]'
-            ];
-            
-            for (const selector of eventSelectors) {
-                const elements = await page.locator(selector).all();
-                if (elements.length > 0 && elements.length < 100) { // Avoid overly broad matches
-                    console.log(`Found ${elements.length} elements with selector: ${selector}`);
-                    eventElements = elements;
-                    break;
-                }
-            }
+    const seenIds = new Set();
+
+    const now = new Date();
+    const startDate = buildDateParam(now);
+    const end = new Date(now);
+    end.setFullYear(end.getFullYear() + 1);
+    const endDate = buildDateParam(end, true);
+
+    let page = 1;
+    let nextUrl = `${API_URL}?${new URLSearchParams({
+        per_page: '50',
+        page: String(page),
+        start_date: startDate,
+        end_date: endDate,
+        status: 'publish',
+    }).toString()}`;
+
+    while (nextUrl && (maxEvents <= 0 || events.length < maxEvents)) {
+        const response = await fetch(nextUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch events: ${response.status} ${response.statusText}`);
         }
-        
-        // If still no structured events found, try calendar cells but be more selective
-        if (eventElements.length === 0) {
-            console.log('Looking for calendar table cells...');
-            eventElements = await page.locator('td[class*="day"], .calendar-day[class*="event"]').all();
+
+        const data = await response.json();
+        const pageEvents = Array.isArray(data.events) ? data.events : [];
+
+        for (const event of pageEvents) {
+            if (seenIds.has(event.id)) continue;
+            events.push(createEventRecord(event));
+            seenIds.add(event.id);
+            if (maxEvents > 0 && events.length >= maxEvents) break;
         }
-        
-        console.log(`Processing ${eventElements.length} potential event elements`);
-        
-        // Process each potential event element
-        for (let i = 0; i < Math.min(eventElements.length, 50); i++) {
-            const element = eventElements[i];
-            
-            try {
-                const elementText = await element.textContent() || '';
-                
-                if (!elementText || elementText.length < 10) continue;
-                
-                console.log(`Processing element ${i + 1}: ${elementText.substring(0, 100)}...`);
-                
-                // Look for links within the element
-                const links = await element.locator('a').all();
-                
-                for (const link of links) {
-                    const linkText = await link.textContent() || '';
-                    const linkUrl = await link.getAttribute('href') || '';
-                    
-                    if (!isLikelyArtistName(linkText)) continue;
-                    
-                    // Extract event details from the surrounding text
-                    const fullText = elementText;
-                    const artistName = cleanText(linkText);
-                    
-                    // Parse date and time from the element text
-                    const eventDate = parseDate(fullText);
-                    const eventTime = parseTime(fullText);
-                    const eventPrice = extractPrice(fullText);
-                    
-                    // Build full URL if relative
-                    const fullUrl = linkUrl.startsWith('/') 
-                        ? `https://thesaxonpub.com${linkUrl}` 
-                        : linkUrl;
-                    
-                    // Extract description (text around the artist name)
-                    const description = cleanText(fullText.replace(linkText, '').substring(0, 200));
-                    
-                    const record = createEventRecord(
-                        artistName,
-                        eventDate,
-                        eventTime,
-                        'Saxon Pub',
-                        fullUrl,
-                        description,
-                        eventPrice
-                    );
-                    
-                    events.push(record);
-                    console.log(`Added event: ${artistName} on ${eventDate}`);
-                }
-                
-                // Also try to extract events from plain text if no links found
-                if (links.length === 0) {
-                    const lines = elementText.split(/[\n\r]+/).map(line => line.trim()).filter(line => line.length > 5);
-                    
-                    for (const line of lines) {
-                        if (isLikelyArtistName(line) && line.length > 5 && line.length < 100) {
-                            const eventDate = parseDate(elementText);
-                            const eventTime = parseTime(elementText);
-                            const eventPrice = extractPrice(elementText);
-                            
-                            const record = createEventRecord(
-                                cleanText(line),
-                                eventDate,
-                                eventTime,
-                                'Saxon Pub',
-                                '',
-                                cleanText(elementText.substring(0, 150)),
-                                eventPrice
-                            );
-                            
-                            events.push(record);
-                            console.log(`Added text-based event: ${line}`);
-                            break; // Only one event per element
-                        }
-                    }
-                }
-                
-            } catch (elementError) {
-                console.log(`Error processing element: ${elementError.message}`);
-            }
-        }
-        
-        // Fallback: try to find event info in the page text
-        if (events.length < 3) {
-            console.log('Limited events found, trying fallback text extraction...');
-            
-            const bodyText = await page.locator('body').textContent() || '';
-            const eventPatterns = [
-                /([A-Z][a-zA-Z\s&]+(?:Band|Trio|Quartet|Lounge|Show))\s*December \d+/gi,
-                /December \d+[^0-9]*([A-Z][a-zA-Z\s&]{5,40})/gi
-            ];
-            
-            for (const pattern of eventPatterns) {
-                let match;
-                while ((match = pattern.exec(bodyText)) !== null && events.length < 20) {
-                    const potentialArtist = cleanText(match[1]);
-                    
-                    if (isLikelyArtistName(potentialArtist)) {
-                        const context = bodyText.substring(Math.max(0, match.index - 50), match.index + 100);
-                        const eventDate = parseDate(context);
-                        const eventTime = parseTime(context);
-                        const eventPrice = extractPrice(context);
-                        
-                        const record = createEventRecord(
-                            potentialArtist,
-                            eventDate,
-                            eventTime,
-                            'Saxon Pub',
-                            '',
-                            cleanText(context.substring(0, 100)),
-                            eventPrice
-                        );
-                        
-                        events.push(record);
-                        console.log(`Added fallback event: ${potentialArtist}`);
-                    }
-                }
-            }
-        }
-        
-    } catch (error) {
-        console.error('Error parsing Saxon Pub events:', error);
+
+        nextUrl = (data.next_rest_url && (!maxEvents || events.length < maxEvents))
+            ? data.next_rest_url
+            : null;
     }
-    
-    console.log(`Total Saxon Pub events parsed: ${events.length}`);
+
     return events;
 }
 
-console.log('Starting Saxon Pub calendar scraper...');
+console.log('Starting Saxon Pub calendar scraper using Events API...');
 
 await Actor.init();
 
-// Get input
 const input = await Actor.getInput() || {};
-const {
-    startUrl = 'https://thesaxonpub.com/events/',
-    maxEvents = 50
-} = input;
+const { maxEvents = 100 } = input;
 
-console.log('Starting Saxon Pub calendar scraper on:', startUrl);
+try {
+    const events = await fetchEvents(maxEvents);
 
-// Configure crawler
-const crawler = new PlaywrightCrawler({
-    headless: true,
-    requestHandler: async ({ page, request }) => {
-        console.log(`Processing: ${request.url}`);
-        
-        const events = await parseSaxonPubEvents(page);
-        
-        // Limit events if specified
-        const limitedEvents = maxEvents > 0 ? events.slice(0, maxEvents) : events;
-        
-        if (limitedEvents.length === 0) {
-            console.warn('No events found on the page');
-        } else {
-            console.log(`Saved ${limitedEvents.length} events from Saxon Pub`);
-        }
-        
-        // Push each event to the dataset
-        for (const event of limitedEvents) {
-            await Actor.pushData(event);
-        }
-    },
-    maxRequestsPerCrawl: 1,
-});
+    if (events.length === 0) {
+        console.warn('No events returned from API');
+    } else {
+        console.log(`Fetched ${events.length} events from Saxon Pub API`);
+    }
 
-// Add initial request
-await crawler.addRequests([{ url: startUrl }]);
-
-// Run the crawler
-await crawler.run();
+    for (const event of events) {
+        await Actor.pushData(event);
+    }
+} catch (error) {
+    console.error('Failed to fetch Saxon Pub events:', error);
+    throw error;
+}
 
 console.log('Saxon Pub calendar scraper finished!');
 

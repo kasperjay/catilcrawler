@@ -6,7 +6,7 @@
     "version": "1.0",
     "meta": {
         "templateId": "playwright-crawler",
-        "generatedBy": "Claude Sonnet 4"
+        "generatedBy": "gpt-5-codex"
     },
     "input": "./input_schema.json",
     "dockerfile": "./Dockerfile",
