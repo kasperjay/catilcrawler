@@ -1,0 +1,16 @@
+{
+  "actorSpecification": 1,
+  "name": "antones-calendar-scraper",
+  "title": "Antone's Nightclub Calendar Scraper",
+  "description": "Scrapes upcoming events from Antone's Nightclub in Austin, TX",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "claude-sonnet-4.5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "changelog": "./CHANGELOG.md",
+  "storages": {}
+}

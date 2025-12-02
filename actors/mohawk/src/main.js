@@ -126,19 +126,35 @@ const crawler = new PlaywrightCrawler({
 
             if (isNonConcert(`${title} ${bodyText}`)) return;
 
+            // Extract artists from multiple sources
             const fromList = listArtistsByUrl.get(url) || [];
-            const parsed = parseArtists({ title, subtitle, pageText: '' });
-            // Try to detect support from a compact hero section
+            const fromTitle = splitArtists(title);
+            const fromSubtitle = splitArtists(subtitle);
+            
+            // Try to detect support from hero section
             const heroText = strip((await page.textContent('main, article, .single-event').catch(() => '')) || '').slice(0, 1200);
             const withMatch = (heroText.match(/\b(?:with|w\/)\s+([A-Za-z0-9][\w\s&'./+\-]+(?:\s*,\s*[A-Za-z0-9][\w\s&'./+\-]+)*)/i) || [])[1] || '';
-            const fromHero = splitArtists(withMatch);
+            const fromWith = splitArtists(withMatch);
+            
             // Anchor-based hints (often artist names are linked)
             const anchorHints = await page.$$eval('main a, article a, .single-event a', as => as
                 .map(a => (a.textContent || '').trim())
                 .filter(t => t && !/ticket|buy|eventim|mohawk/i.test(t) && t.length <= 60));
             const fromAnchors = splitArtists(anchorHints.join(', '));
-            const combined = [...fromList, ...parsed, ...fromHero, ...fromAnchors].filter(isLikelyArtist);
-            const artists = [...new Set(combined)];
+            
+            // Combine and deduplicate by lowercase comparison
+            const allArtists = [...fromList, ...fromTitle, ...fromSubtitle, ...fromWith, ...fromAnchors]
+                .filter(isLikelyArtist)
+                .filter((name, idx, arr) => {
+                    // Keep only first occurrence (case-insensitive)
+                    const lower = name.toLowerCase();
+                    return arr.findIndex(n => n.toLowerCase() === lower) === idx;
+                });
+            
+            // Determine headliner (likely the first from title) and support acts
+            const headliner = fromTitle.filter(isLikelyArtist)[0] || allArtists[0];
+            const support = allArtists.filter(a => a.toLowerCase() !== headliner?.toLowerCase());
+            const artists = headliner ? [headliner, ...support] : allArtists;
             const eventDate = parseDateFromText(bodyText);
             const { showTime, doorsTime } = parseTimesFromText(bodyText);
             const price = (bodyText.match(/\$\d+(?:\.\d{2})?/g) || []).join(', ') || (bodyText.match(/free|sold out/i) || [''])[0];
@@ -183,8 +199,11 @@ const crawler = new PlaywrightCrawler({
             });
             for (const r of rows) {
                 if (seen.has(r.url)) continue;
-                const artists = splitArtists(`${r.title} ${r.subtitle}`);
-                if (artists.length) listArtistsByUrl.set(r.url, artists);
+                // Parse title and subtitle separately, then combine unique artists
+                const fromTitle = splitArtists(r.title);
+                const fromSubtitle = splitArtists(r.subtitle);
+                const unique = [...new Set([...fromTitle, ...fromSubtitle])].filter(isLikelyArtist);
+                if (unique.length) listArtistsByUrl.set(r.url, unique);
             }
             return rows.length;
         }
