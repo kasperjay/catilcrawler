@@ -5,8 +5,21 @@ const API_KEY = 'c6e5e0363b5925b28552de8805464c66f25ba0ce';
 const VENUE_ID = '678194628'; // Austin location
 const TIMEZONE = 'America/Chicago';
 
+function decodeHtmlEntities(text = '') {
+    const map = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#039;': "'",
+        '&hellip;': '…',
+        '&nbsp;': ' '
+    };
+    return text.replace(/(&amp;|&lt;|&gt;|&quot;|&#039;|&hellip;|&nbsp;)/g, (m) => map[m] || m);
+}
+
 function stripHtml(text = '') {
-    return text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    return decodeHtmlEntities(text.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 function formatDate(dateString) {
@@ -24,19 +37,19 @@ function formatTime(dateString) {
 }
 
 function normalizePrice(event) {
-    if (event.cost) {
-        return stripHtml(event.cost).replace('&#036;', '$').trim();
-    }
-    const costDisplay = event.cost_display;
-    if (costDisplay && costDisplay !== '0') {
-        return costDisplay.startsWith('$') ? costDisplay : `$${costDisplay}`;
-    }
-    return '';
+    const raw = event.cost || event.cost_display || '';
+    if (!raw || raw === '0') return '';
+    let text = stripHtml(raw).replace(/&#036;/g, '$');
+    // Remove embedded set times from price field
+    text = text.replace(/@\d{1,2}(?:[:\d]{0,3})?(?:am|pm)/gi, '').trim();
+    // Collapse extra whitespace and trailing punctuation spacing
+    text = text.replace(/\s+([.,])/g, '$1');
+    return text;
 }
 
-function createEventRecord(event) {
-    const venueName = event.taxonomies?.taxonomy_venue?.[0]?.title || 'Continental Club';
-    return {
+function createEventRecord(event, overrides = {}) {
+    const venueName = event.taxonomies?.taxonomy_venue?.[0]?.title || 'The Continental Club';
+    const base = {
         artist: event.title || '',
         eventDate: formatDate(event.start_datetime),
         eventTime: formatTime(event.start_datetime),
@@ -46,10 +59,64 @@ function createEventRecord(event) {
         price: normalizePrice(event),
         scrapedAt: new Date().toISOString(),
     };
+    return { ...base, ...overrides, artist: (overrides.artist || base.artist).trim() };
+}
+
+// Convert a compact time fragment like "10pm" / "9:30pm" to "10:00 pm" / "9:30 pm"
+function normalizeInlineTime(fragment) {
+    if (!fragment) return '';
+    const m = fragment.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/i);
+    if (!m) return '';
+    const hour = m[1];
+    const minutes = m[2] || '00';
+    const suffix = m[3].toLowerCase();
+    return `${hour}:${minutes} ${suffix}`;
+}
+
+// Split multi-artist titles of the form "Artist A @9pm, Artist B @10:30pm, Artist C @12am"
+function splitMultiArtistTitle(title) {
+    if (!title) return [];
+    const hasMultipleAt = (title.match(/@\d{1,2}/g) || []).length > 1;
+    if (!hasMultipleAt) return [];
+    // Simple split on commas; Timely titles separate set descriptors by comma
+    const segments = title.split(',').map(s => s.trim()).filter(Boolean);
+    const results = [];
+    for (const seg of segments) {
+        const match = seg.match(/^(.*?)(?:\s*@\s*(\d{1,2}(?::\d{2})?(?:am|pm)))/i);
+        if (match) {
+            const artistName = match[1].trim();
+            const timeFragment = normalizeInlineTime(match[2].replace(/\s+/g, '')) || formatTimeGuess(match[2]);
+            results.push({ artist: artistName, eventTime: timeFragment });
+        } else {
+            // Fallback keep whole segment as artist
+            results.push({ artist: seg });
+        }
+    }
+    return results;
+}
+
+function formatTimeGuess(raw) {
+    if (!raw) return '';
+    const cleaned = raw.toLowerCase().replace(/\s+/g, '');
+    return normalizeInlineTime(cleaned);
 }
 
 function formatDateParam(date) {
     return date.toISOString().split('T')[0];
+}
+
+// Dedupe by artist name only (case-insensitive) keeping first occurrence (earliest in crawl order)
+function dedupeByArtist(records) {
+    const seen = new Set();
+    const result = [];
+    for (const r of records) {
+        const key = r.artist.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(r);
+        }
+    }
+    return result;
 }
 
 async function fetchEvents({ daysAhead, maxEvents }) {
@@ -89,7 +156,16 @@ async function fetchEvents({ daysAhead, maxEvents }) {
 
         for (const day of Object.keys(grouped)) {
             for (const event of grouped[day]) {
-                events.push(createEventRecord(event));
+                const record = createEventRecord(event);
+                const splits = splitMultiArtistTitle(record.artist);
+                if (splits.length) {
+                    for (const s of splits) {
+                        events.push(createEventRecord(event, { artist: s.artist, eventTime: s.eventTime || record.eventTime }));
+                        if (maxEvents > 0 && events.length >= maxEvents) return events;
+                    }
+                } else {
+                    events.push(record);
+                }
                 if (maxEvents > 0 && events.length >= maxEvents) {
                     return events;
                 }
@@ -117,14 +193,15 @@ const {
 
 try {
     const events = await fetchEvents({ daysAhead, maxEvents });
+    const deduped = dedupeByArtist(events);
 
-    if (events.length === 0) {
+    if (deduped.length === 0) {
         console.warn('No events returned from Timely API');
     } else {
-        console.log(`Fetched ${events.length} events from Continental Club`);
+        console.log(`Fetched ${events.length} events from Continental Club; ${deduped.length} after artist dedupe (${events.length - deduped.length} removed).`);
     }
 
-    for (const event of events) {
+    for (const event of deduped) {
         await Actor.pushData(event);
     }
 } catch (error) {

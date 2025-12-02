@@ -17,6 +17,19 @@
       "description": "Maximum number of events to scrape (0 = unlimited)",
       "default": 50,
       "minimum": 0
+    },
+    "dedupeRecurring": {
+      "title": "Dedupe Recurring Events",
+      "type": "boolean",
+      "description": "If true, only keep the first record per unique artist name (case-insensitive)",
+      "default": true
+    },
+    "perPage": {
+      "title": "API Page Size",
+      "type": "integer",
+      "description": "Events fetched per API page (increase above 50 to remove default limit).",
+      "default": 200,
+      "minimum": 1
     }
   },
   "required": ["startUrl"]

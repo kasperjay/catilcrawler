@@ -3,11 +3,11 @@
     "name": "continental-club-calendar-scraper",
     "title": "Continental Club Calendar Scraper",
     "description": "Scrapes events from Continental Club's calendar page and extracts concert information including artist names, dates, and event details.",
-    "version": "1.0",
-    "meta": {
-        "templateId": "playwright-crawler",
-        "generatedBy": "gpt-5-codex"
-    },
+  "version": "1.0",
+  "meta": {
+    "templateId": "playwright-crawler",
+    "generatedBy": "gpt-5"
+  },
     "input": "./input_schema.json",
     "dockerfile": "./Dockerfile",
     "readme": "./README.md",

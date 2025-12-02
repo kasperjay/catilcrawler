@@ -17,6 +17,20 @@
       "description": "Maximum number of events to collect (0 = unlimited)",
       "default": 200,
       "minimum": 0
+    },
+    "maxConcurrency": {
+      "title": "Max Concurrency",
+      "type": "integer",
+      "description": "Maximum parallel pages (lower reduces timeouts and memory)",
+      "default": 6,
+      "minimum": 1
+    },
+    "requestHandlerTimeoutSecs": {
+      "title": "Request Handler Timeout (secs)",
+      "type": "integer",
+      "description": "Seconds before a page processing is aborted",
+      "default": 120,
+      "minimum": 30
     }
   },
   "required": ["startUrl"]

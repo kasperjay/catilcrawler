@@ -57,7 +57,7 @@ function buildDateParam(date, endOfDay = false) {
     return `${base} ${endOfDay ? '23:59:59' : '00:00:00'}`;
 }
 
-async function fetchEvents(maxEvents) {
+async function fetchEvents(maxEvents, perPage) {
     const events = [];
     const seenIds = new Set();
 
@@ -69,7 +69,7 @@ async function fetchEvents(maxEvents) {
 
     let page = 1;
     let nextUrl = `${API_URL}?${new URLSearchParams({
-        per_page: '50',
+        per_page: String(perPage),
         page: String(page),
         start_date: startDate,
         end_date: endDate,
@@ -105,20 +105,37 @@ console.log('Starting Saxon Pub calendar scraper using Events API...');
 await Actor.init();
 
 const input = await Actor.getInput() || {};
-const { maxEvents = 100 } = input;
+const { maxEvents = 100, perPage = 200 } = input;
 
 try {
-    const events = await fetchEvents(maxEvents);
+    const { dedupeRecurring = true } = input;
+    const events = await fetchEvents(maxEvents, perPage);
 
     if (events.length === 0) {
         console.warn('No events returned from API');
     } else {
-        console.log(`Fetched ${events.length} events from Saxon Pub API`);
+        console.log(`Fetched ${events.length} events from Saxon Pub API before dedupe`);
     }
 
-    for (const event of events) {
+    let finalEvents = events;
+    if (dedupeRecurring) {
+        const seenArtists = new Set();
+        const deduped = [];
+        for (const ev of events) {
+            const artistKey = (ev.artist || '').toLowerCase().trim();
+            if (!artistKey) continue; // Skip empty artist entries entirely
+            if (seenArtists.has(artistKey)) continue;
+            seenArtists.add(artistKey);
+            deduped.push(ev);
+        }
+        console.log(`Artist-only dedupe removed ${events.length - deduped.length} duplicates (kept first occurrence per artist)`);
+        finalEvents = deduped;
+    }
+
+    for (const event of finalEvents) {
         await Actor.pushData(event);
     }
+    console.log(`Pushed ${finalEvents.length} events to dataset`);
 } catch (error) {
     console.error('Failed to fetch Saxon Pub events:', error);
     throw error;
