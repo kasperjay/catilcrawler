@@ -70,7 +70,113 @@ function isLikelyArtistName(text) {
     const totalLength = cleaned.length;
     if (alphabeticCount / totalLength < 0.6) return false;
     
+    // Must have at least one capital letter (artist names are usually title case)
+    if (!/[A-Z]/.test(cleaned)) return false;
+    
+    // Avoid very short or very long strings
+    if (cleaned.length < 4 || cleaned.length > 50) return false;
+    
+    // Most legitimate artist names have at least 2 words (first + last name or band name with multiple words)
+    // Allow some exceptions for single word band names that are reasonably long
+    const words = cleaned.trim().split(/\s+/);
+    if (words.length === 1 && cleaned.length < 8) return false;
+    
+    // Additional patterns to exclude
+    if (/^\w+\s*-\s*$/.test(cleaned)) return false;  // Single word with dash
+    if (/^[^\w\s]+$/.test(cleaned)) return false;    // Only punctuation
+    
+    // Specific non-artist phrases that are getting through
+    if (/^(night\s+[12]|search\s+add|get\s+a\s+timely)$/i.test(cleaned)) return false;
+    if (/^(merry\s+christmas|happy\s+hanukkah|closed.*happy)$/i.test(cleaned)) return false;
+    if (/^december\s+2025$/i.test(cleaned)) return false;
+    if (/search\s+add\s+to\s+calendar/i.test(cleaned)) return false;
+    if (/^get\s+a\s+timely\s+calendar$/i.test(cleaned)) return false;
+    if (/december.*search.*add.*calendar/i.test(cleaned)) return false;
+    
+    // Exclude benefit events and generic event text
+    if (/\b(benefit|fundraiser|charity|memorial)\b/i.test(cleaned)) return false;
+    if (/\b(all\s+night\s+long|annual\s+.*show)\b/i.test(cleaned)) return false;
+    
+    // Exclude text with excessive punctuation (likely descriptions)
+    const punctuationCount = (cleaned.match(/[!@#$%^&*(),.?":{}|<>\[\]\\;'`~_+=]/g) || []).length;
+    if (punctuationCount > 3) return false;
+    
     return true;
+}
+
+function extractMultipleArtists(eventText) {
+    const artists = [];
+    
+    // Clean the text first
+    let cleaned = eventText.replace(/@\d{1,2}(:\d{2})?(am|pm)/gi, '').trim();
+    
+    // Pattern 1: Multiple artists with times "Artist1 6:30pm Artist2 9:30pm Artist3"
+    const timePattern = /\b\d{1,2}:\d{2}\s*[ap]m\b/gi;
+    const timeMatches = [...cleaned.matchAll(timePattern)];
+    
+    if (timeMatches.length > 0) {
+        // Split by time markers
+        const segments = cleaned.split(timePattern);
+        
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i].trim();
+            if (segment && segment.length > 2 && segment.length < 80) {
+                // Clean up any remaining artifacts
+                const cleanSegment = segment.replace(/^(and\s+|&\s+)/i, '').trim();
+                
+                // Check if this segment contains comma-separated artists
+                if (cleanSegment.includes(',')) {
+                    const commaParts = cleanSegment.split(',');
+                    commaParts.forEach(part => {
+                        const trimmedPart = part.trim();
+                        if (trimmedPart && isLikelyArtistName(trimmedPart)) {
+                            artists.push(trimmedPart);
+                        }
+                    });
+                } else if (cleanSegment && isLikelyArtistName(cleanSegment)) {
+                    artists.push(cleanSegment);
+                }
+            }
+        }
+    }
+    
+    // Pattern 2: Artists separated by common delimiters (prioritize comma)
+    if (artists.length === 0) {
+        // First try comma separation
+        if (cleaned.includes(',')) {
+            const parts = cleaned.split(',');
+            parts.forEach(part => {
+                const trimmed = part.trim().replace(/^(and\s+|&\s+)/i, '').trim();
+                if (trimmed && trimmed.length > 2 && isLikelyArtistName(trimmed)) {
+                    artists.push(trimmed);
+                }
+            });
+        } else {
+            // Try other delimiters
+            const delimiters = [' & ', ' and ', ' with ', ' + ', ' / '];
+            
+            for (const delimiter of delimiters) {
+                if (cleaned.includes(delimiter)) {
+                    const parts = cleaned.split(delimiter);
+                    parts.forEach(part => {
+                        const trimmed = part.trim().replace(/^(and\s+|&\s+)/i, '').trim();
+                        if (trimmed && trimmed.length > 2 && isLikelyArtistName(trimmed)) {
+                            artists.push(trimmed);
+                        }
+                    });
+                    break; // Only use the first delimiter that matches
+                }
+            }
+        }
+    }
+    
+    // Pattern 3: If still no results but looks like a single artist
+    if (artists.length === 0 && isLikelyArtistName(cleaned)) {
+        artists.push(cleaned);
+    }
+    
+    // Filter out any empty results
+    return artists.filter(artist => artist && artist.trim().length > 0);
 }
 
 function createEventRecord(artist, eventDate, eventTime, venue, eventUrl, description, price) {
@@ -138,14 +244,15 @@ async function parseContinentalClubEvents(page) {
         }
     }
     
-    const events = [];
-    
-    try {
+        const events = [];
+        const addedEvents = new Set();    try {
         // Extract all event data at once using a single page evaluation
         console.log('Extracting all event data from calendar...');
         
-        const allEventData = await page.evaluate(() => {
-            // Look for all possible event containers
+        const addedEvents = new Set(); // Track added events to prevent duplicates
+        
+        const eventData = await page.evaluate(() => {
+            // Look for all possible event containers with expanded selectors
             const eventSelectors = [
                 '.timely-event',
                 '[data-event-id]',
@@ -155,26 +262,38 @@ async function parseContinentalClubEvents(page) {
                 '.event-row',
                 '.event-card',
                 '.calendar-event',
-                '.event'
+                '.event',
+                // Additional selectors for Timely calendar
+                'div[class*="event"]',
+                'div[class*="timely"]',
+                'li[class*="event"]',
+                'a[href*="event"]',
+                // Look for any elements with time patterns
+                '*:contains("pm")', 
+                '*:contains("am")'
             ];
             
-            let eventElements = [];
+            let eventElements = new Set(); // Use Set to avoid duplicates
             
-            // Try each selector until we find elements
+            // Try each selector and collect ALL matching elements
             for (const selector of eventSelectors) {
-                const elements = Array.from(document.querySelectorAll(selector));
-                if (elements.length > 0 && elements.length < 200) { // Reasonable number
-                    eventElements = elements;
-                    break;
+                try {
+                    const elements = Array.from(document.querySelectorAll(selector));
+                    elements.forEach(el => eventElements.add(el));
+                } catch (e) {
+                    // Skip selectors that don't work (like :contains)
                 }
             }
             
-            console.log(`Found ${eventElements.length} event elements to process`);
+            // Convert Set back to Array
+            eventElements = Array.from(eventElements);
+            
+            console.log(`Found ${eventElements.length} total event elements to process`);
             
             const extractedEvents = [];
             
-            // Process up to 50 elements to avoid timeouts
-            for (let i = 0; i < Math.min(eventElements.length, 50); i++) {
+            // Process ALL elements, not just first 50
+            for (let i = 0; i < eventElements.length; i++) {
                 const el = eventElements[i];
                 const fullText = el.textContent?.trim() || '';
                 
@@ -197,12 +316,12 @@ async function parseContinentalClubEvents(page) {
                 date = dateEl?.textContent?.trim() || '';
                 eventUrl = linkEl?.href || '';
                 
-                // If no structured title, parse from full text
+                // If no structured title, parse from full text with multiple strategies
                 if (!title && fullText) {
                     const lines = fullText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
                     
                     for (const line of lines) {
-                        // Look for time + artist patterns like "7:00pm The Bluebonnets"
+                        // Strategy 1: Look for time + artist patterns like "7:00pm The Bluebonnets"
                         const timeArtistMatch = line.match(/^(\\d{1,2}:\\d{2}(?:am|pm)?)\\s+(.+)$/i);
                         if (timeArtistMatch && timeArtistMatch[2].length > 2 && timeArtistMatch[2].length < 100) {
                             if (!time) time = timeArtistMatch[1];
@@ -210,47 +329,80 @@ async function parseContinentalClubEvents(page) {
                             break;
                         }
                         
-                        // If line looks like an artist name and we don't have a title
-                        if (!title && line.length > 5 && line.length < 80 && 
+                        // Strategy 2: Look for artists with @ times like "James McMurtry @10pm"
+                        const artistAtTimeMatch = line.match(/^(.+?)\\s+@\\d{1,2}(:\\d{2})?(am|pm)/i);
+                        if (artistAtTimeMatch && artistAtTimeMatch[1].length > 3) {
+                            title = artistAtTimeMatch[1].trim();
+                            if (!time) {
+                                const timeMatch = line.match(/@(\\d{1,2}(:\\d{2})?(am|pm))/i);
+                                if (timeMatch) time = timeMatch[1];
+                            }
+                            break;
+                        }
+                        
+                        // Strategy 3: If line looks like an artist name and we don't have a title
+                        if (!title && line.length > 3 && line.length < 80 && 
                             !line.match(/^\\d{1,2}:\\d{2}/i) &&
                             !line.match(/^(mon|tue|wed|thu|fri|sat|sun)/i) &&
-                            !line.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i)) {
+                            !line.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i) &&
+                            !line.match(/^\\d+$/) && // Not just numbers
+                            line.match(/[A-Za-z]/) && // Contains letters
+                            !line.match(/^(view|more|info|details|tickets)$/i)) { // Not generic UI text
                             title = line;
+                        }
+                    }
+                    
+                    // Strategy 4: Look for artist names anywhere in the text using regex
+                    if (!title) {
+                        // Find text that looks like artist names (2+ words, proper case, reasonable length)
+                        const artistMatches = fullText.match(/\\b[A-Z][a-z]+(?:\\s+[A-Z&][a-zA-Z]*)*(?:\\s+[A-Z][a-z]+)*\\b/g);
+                        if (artistMatches) {
+                            for (const match of artistMatches) {
+                                if (match.length > 4 && match.length < 60 && 
+                                    !match.match(/^(December|January|February|March|April|May|June|July|August|September|October|November)$/i) &&
+                                    !match.match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)$/i)) {
+                                    title = match.trim();
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
                 
-                if (title || (fullText && fullText.length > 10)) {
+                // Lower the threshold - capture more potential events
+                if (title || (fullText && fullText.length > 5)) {
                     extractedEvents.push({
                         title: title || '',
                         time: time || '',
                         date: date || '',
                         fullText: fullText || '',
-                        eventUrl: eventUrl || ''
+                        eventUrl: eventUrl || '',
+                        elementIndex: i // For debugging
                     });
+                    
+                    // Debug log for first 10 elements
+                    if (i < 10) {
+                        console.log(`Element ${i}: title="${title}", time="${time}", fullText="${fullText.substring(0, 60)}..."`);
+                    }
                 }
             }
             
             return extractedEvents;
         });
         
-        console.log(`Extracted ${allEventData.length} event data objects`);
+        console.log(`Extracted ${eventData.length} event data objects`);
         
         // Process the extracted data (this happens outside the browser context)
-        for (const eventData of allEventData) {
+        for (const eventItem of eventData) {
             try {
-                let artistName = eventData.title || eventData.fullText;
+                let artistName = eventItem.title || eventItem.fullText;
                 
                 if (!artistName || artistName.length < 3) continue;
                 
-                // Clean up artist names - remove set times and handle multiple artists
-                // Remove set times like "@10pm", "@12am", etc.
-                artistName = artistName.replace(/@\d{1,2}(:\d{2})?(am|pm)/gi, '');
+                // Extract multiple artists from complex event text
+                const extractedArtists = extractMultipleArtists(artistName);
                 
-                // Split on commas for multiple artists, but avoid splitting on times
-                const artistParts = artistName.split(/,\s*(?![^@]*@)/).map(a => a.trim());
-                
-                for (const individualArtist of artistParts) {
+                for (const individualArtist of extractedArtists) {
                     const cleanedArtist = cleanText(individualArtist);
                     
                     if (!cleanedArtist || cleanedArtist.length < 3 || cleanedArtist.length > 80) {
@@ -261,27 +413,26 @@ async function parseContinentalClubEvents(page) {
                         continue;
                     }
                     
-                    // Check for duplicates
-                    const isDuplicate = events.some(event => 
-                        event.artist.toLowerCase() === cleanedArtist.toLowerCase()
-                    );
-                    
-                    if (isDuplicate) {
+                    // Check for duplicates using the Set
+                    const artistKey = cleanedArtist.toLowerCase();
+                    if (addedEvents.has(artistKey)) {
                         continue;
                     }
                     
+                    addedEvents.add(artistKey);
+                    
                     // Build full URL if needed
-                    const fullUrl = eventData.eventUrl && eventData.eventUrl.startsWith('/') 
-                        ? `https://continentalclub.com${eventData.eventUrl}` 
-                        : eventData.eventUrl || '';
+                    const fullUrl = eventItem.eventUrl && eventItem.eventUrl.startsWith('/') 
+                        ? `https://continentalclub.com${eventItem.eventUrl}` 
+                        : eventItem.eventUrl || '';
                     
                     const record = createEventRecord(
                         cleanedArtist,
-                        eventData.date || extractDate(eventData.fullText) || '',
-                        eventData.time || extractTime(eventData.fullText) || '',
+                        eventItem.date || extractDate(eventItem.fullText) || '',
+                        eventItem.time || extractTime(eventItem.fullText) || '',
                         'Continental Club',
                         fullUrl,
-                        cleanText(eventData.fullText.substring(0, 100)),
+                        cleanText(eventItem.fullText.substring(0, 100)),
                         ''
                     );
                     
@@ -294,22 +445,25 @@ async function parseContinentalClubEvents(page) {
             }
         }
         
-        // Additional text-based extraction if we have few events
-        if (events.length < 5) {
-            console.log('Limited events found, trying text-based extraction...');
+        // Additional text-based extraction to catch any missed artists
+        if (events.length < 20) { // Increased threshold since we expect 26+
+            console.log('Doing comprehensive text-based extraction to find more artists...');
             
             const pageText = await page.evaluate(() => document.body.textContent || '');
-            const timeArtistRegex = /\b(\d{1,2}:\d{2}(?:am|pm)?)\s+([A-Z][a-zA-Z\s&\-']{4,60})(?=\s|$|,)/gi;
+            
+            // Strategy 1: Time + artist patterns
+            const timeArtistRegex = /\b(\d{1,2}:\d{2}(?:am|pm)?)\s+([A-Z][a-zA-Z\s&\-']{3,60})(?=\s|$|,|\.|@)/gi;
             let match;
             
-            while ((match = timeArtistRegex.exec(pageText)) !== null && events.length < 30) {
+            while ((match = timeArtistRegex.exec(pageText)) !== null && events.length < 50) {
                 const time = match[1];
                 let artistName = cleanText(match[2]);
                 
-                // Clean set times
+                // Clean set times and extra markers
                 artistName = artistName.replace(/@\d{1,2}(:\d{2})?(am|pm)/gi, '');
+                artistName = artistName.replace(/\s+(Night|Day)\s+\d+$/i, ''); // Remove "Night 1", "Day 2" etc.
                 
-                if (artistName && artistName.length >= 4 && artistName.length <= 60 &&
+                if (artistName && artistName.length >= 3 && artistName.length <= 60 &&
                     isLikelyArtistName(artistName)) {
                     
                     // Check for duplicates
@@ -333,6 +487,39 @@ async function parseContinentalClubEvents(page) {
                     }
                 }
             }
+            
+            // Strategy 2: Artist @ time patterns
+            const artistAtTimeRegex = /\b([A-Z][a-zA-Z\s&\-']{3,50})\s+@\d{1,2}(:\d{2})?(am|pm)/gi;
+            
+            while ((match = artistAtTimeRegex.exec(pageText)) !== null && events.length < 50) {
+                let artistName = cleanText(match[1]);
+                const timeMatch = match[0].match(/@(\d{1,2}(:\d{2})?(am|pm))/i);
+                const time = timeMatch ? timeMatch[1] : '';
+                
+                if (artistName && artistName.length >= 3 && artistName.length <= 50 &&
+                    isLikelyArtistName(artistName)) {
+                    
+                    // Check for duplicates
+                    const isDuplicate = events.some(event => 
+                        event.artist.toLowerCase() === artistName.toLowerCase()
+                    );
+                    
+                    if (!isDuplicate) {
+                        const record = createEventRecord(
+                            artistName,
+                            '',
+                            time,
+                            'Continental Club',
+                            '',
+                            cleanText(match[0].substring(0, 100)),
+                            ''
+                        );
+                        
+                        events.push(record);
+                        console.log(`Added @time-based event: ${artistName}`);
+                    }
+                }
+            }
         }
         
     } catch (error) {
@@ -340,6 +527,9 @@ async function parseContinentalClubEvents(page) {
     }
     
     console.log(`Total Continental Club events parsed: ${events.length}`);
+    if (events.length > 0) {
+        console.log(`Events found: ${events.map(e => e.artist).join(', ')}`);
+    }
     return events;
 }
 
