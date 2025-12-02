@@ -1,0 +1,16 @@
+{
+  "actorSpecification": 1,
+  "name": "mohawk-calendar-scraper",
+  "title": "Mohawk Austin Calendar Scraper",
+  "description": "Scrapes upcoming events from Mohawk Austin events page",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "gpt-5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "changelog": "./CHANGELOG.md",
+  "storages": {}
+}
