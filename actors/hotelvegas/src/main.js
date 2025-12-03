@@ -233,8 +233,8 @@ const crawler = new PlaywrightCrawler({
         }
 
         // Listing page: gather event links and paginate
-        await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(1000);
+        await page.goto(startUrl, { waitUntil: 'networkidle', timeout: 30000 });
+        await page.waitForTimeout(500);
         
         const eventLinks = new Set();
         

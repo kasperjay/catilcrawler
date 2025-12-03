@@ -1,0 +1,35 @@
+Run: npm run start
+
+> scootinn-crawler@1.0.0 start
+> node src/main.js
+
+Starting Scoot Inn scraper (Playwright)...
+[32mINFO[39m  System info[90m {"apifyVersion":"3.5.2","apifyClientVersion":"2.20.0","crawleeVersion":"3.15.3","osType":"Darwin","nodeVersion":"v25.2.1"}[39m
+[32mINFO[39m [33m PlaywrightCrawler:[39m Starting the crawler.
+[32mINFO[39m [33m PlaywrightCrawler:[39m Loading shows page...
+[32mINFO[39m [33m PlaywrightCrawler:Statistics:[39m PlaywrightCrawler request statistics:[90m {"requestAvgFailedDurationMillis":null,"requestAvgFinishedDurationMillis":null,"requestsFinishedPerMinute":0,"requestsFailedPerMinute":0,"requestTotalDurationMillis":0,"requestsTotal":0,"crawlerRuntimeMillis":60080,"retryHistogram":[]}[39m
+[32mINFO[39m [33m PlaywrightCrawler:AutoscaledPool:[39m state[90m {"currentConcurrency":1,"desiredConcurrency":1,"systemStatus":{"isSystemIdle":true,"memInfo":{"isOverloaded":false,"limitRatio":0.2,"actualRatio":0},"eventLoopInfo":{"isOverloaded":false,"limitRatio":0.6,"actualRatio":0},"cpuInfo":{"isOverloaded":false,"limitRatio":0.4,"actualRatio":0},"clientInfo":{"isOverloaded":false,"limitRatio":0.3,"actualRatio":0}}}[39m
+[33mWARN[39m [33m PlaywrightCrawler:[39m Event links not found, page may not have loaded properly
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scrolling to load all events...
+[32mINFO[39m [33m PlaywrightCrawler:[39m Finished scrolling, extracting basic event data...
+[32mINFO[39m [33m PlaywrightCrawler:[39m Found 13 event cards
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: GOLDFORD: SPACE OF THE HEART TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: ARIES: GLASS JAW WORLD TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: PETER MCPOLAND: BIG LUCKY TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: THE STRUMBELLAS - INTO DUST TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 2 artist(s) from: MAGIC CITY HIPPIES WITH SUPERTASTE (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: THE NUDE PARTY (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: BENEE (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: MINDCHATTER: GIVING UP ON WORDS TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: GOLDIE BOUTILIER - THE KING OF POSSIBILITIES TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: QUARTERS (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: THE BROOK & THE BLUFF: WEREWOLF TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: BLACK PISTOL FIRE - FLAGRANT ACT OF BLISS (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:Statistics:[39m PlaywrightCrawler request statistics:[90m {"requestAvgFailedDurationMillis":null,"requestAvgFinishedDurationMillis":null,"requestsFinishedPerMinute":0,"requestsFailedPerMinute":0,"requestTotalDurationMillis":0,"requestsTotal":0,"crawlerRuntimeMillis":120080,"retryHistogram":[]}[39m
+[32mINFO[39m [33m PlaywrightCrawler:AutoscaledPool:[39m state[90m {"currentConcurrency":1,"desiredConcurrency":1,"systemStatus":{"isSystemIdle":true,"memInfo":{"isOverloaded":false,"limitRatio":0.2,"actualRatio":0},"eventLoopInfo":{"isOverloaded":false,"limitRatio":0.6,"actualRatio":0},"cpuInfo":{"isOverloaded":false,"limitRatio":0.4,"actualRatio":0},"clientInfo":{"isOverloaded":false,"limitRatio":0.3,"actualRatio":0}}}[39m
+[32mINFO[39m [33m PlaywrightCrawler:[39m Scraped 1 artist(s) from: SONS OF LEGION - SOUL TO SØL TOUR (0 from lineup)
+[32mINFO[39m [33m PlaywrightCrawler:[39m Crawler reached the maxRequestsPerCrawl limit of 1 requests and will shut down soon. Requests that are in progress will be allowed to finish.
+[32mINFO[39m [33m PlaywrightCrawler:[39m Earlier, the crawler reached the maxRequestsPerCrawl limit of 1 requests and all requests that were in progress at that time have now finished. In total, the crawler processed 1 requests and will shut down.
+[32mINFO[39m [33m PlaywrightCrawler:[39m Final request statistics:[90m {"requestsFinished":1,"requestsFailed":0,"retryHistogram":[1],"requestAvgFailedDurationMillis":null,"requestAvgFinishedDurationMillis":121173,"requestsFinishedPerMinute":0,"requestsFailedPerMinute":0,"requestTotalDurationMillis":121173,"requestsTotal":1,"crawlerRuntimeMillis":121334}[39m
+[32mINFO[39m [33m PlaywrightCrawler:[39m Finished! Total 1 requests: 1 succeeded, 0 failed.[90m {"terminal":true}[39m
+✓ Scraped 14 total records from Scoot Inn

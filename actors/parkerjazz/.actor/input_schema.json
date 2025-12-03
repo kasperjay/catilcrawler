@@ -1,0 +1,37 @@
+{
+  "title": "Parker Jazz Club Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Start URL",
+      "type": "string",
+      "description": "Parker Jazz Club events page URL",
+      "default": "https://parker-jazz.turntabletickets.com/",
+      "prefill": "https://parker-jazz.turntabletickets.com/",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of events to collect (0 = unlimited)",
+      "default": 500,
+      "minimum": 0
+    },
+    "maxConcurrency": {
+      "title": "Max Concurrency",
+      "type": "integer",
+      "description": "Maximum parallel pages (lower reduces timeouts and memory)",
+      "default": 3,
+      "minimum": 1
+    },
+    "requestHandlerTimeoutSecs": {
+      "title": "Request Handler Timeout (secs)",
+      "type": "integer",
+      "description": "Seconds before a page processing is aborted",
+      "default": 120,
+      "minimum": 30
+    }
+  },
+  "required": ["startUrl"]
+}

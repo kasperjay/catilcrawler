@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "scootinn-calendar-scraper",
+  "title": "Scoot Inn Calendar Scraper",
+  "description": "Scrapes upcoming events from Scoot Inn Austin",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "Claude Sonnet 4.5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}
