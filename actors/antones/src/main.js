@@ -25,7 +25,7 @@ function parseTimeFromText(text) {
     if (!text) return '';
     // Look for time patterns like "8:00pm" or "8:00 pm"
     const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-    if (match) {
+    if (match) {`1`q````                                                        
         return `${match[1]}:${match[2]} ${match[3].toLowerCase()}`;
     }
     return strip(text);
@@ -394,7 +394,7 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start crawl
-await crawler.run([{
+awai                                t crawler.run([{
     url: startUrl,
     userData: { label: 'CALENDAR' }
 }]);

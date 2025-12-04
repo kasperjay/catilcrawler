@@ -1,0 +1,217 @@
+import { Actor } from 'apify';
+import { log } from 'crawlee';
+
+const DEFAULT_URL = 'https://hautespot.live/calendar';
+const BASE_HOST = 'https://hautespot.live';
+const VENUE_NAME = 'Haute Spot';
+const TIME_ZONE = 'America/Chicago';
+const PAST_THRESHOLD_MS = 24 * 60 * 60 * 1000; // skip events more than a day old
+
+const strip = (text = '') => text.replace(/\s+/g, ' ').trim();
+
+function htmlToText(html = '') {
+    if (!html) return '';
+    const normalized = html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<li>/gi, '\n')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/<[^>]*>/g, ' ');
+    return strip(normalized.replace(/\n\s*\n+/g, '\n'));
+}
+
+function formatDate(ms) {
+    if (!ms) return '';
+    return new Date(ms).toLocaleString('en-US', {
+        timeZone: TIME_ZONE,
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
+function normalizeTime(text) {
+    if (!text) return '';
+    const match = text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+    if (!match) return strip(text);
+    const [, hour, minutes = '00', meridiem] = match;
+    return `${Number(hour)}:${minutes.padStart(2, '0')} ${meridiem.toUpperCase()}`;
+}
+
+function formatTime(ms) {
+    if (!ms) return '';
+    return new Date(ms).toLocaleTimeString('en-US', {
+        timeZone: TIME_ZONE,
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    });
+}
+
+function extractDoorsTime(text) {
+    const match = text.match(/doors?\s*(?:open\s*)?(?:at\s*)?(\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
+    return match ? normalizeTime(match[1]) : '';
+}
+
+function extractPrice(text) {
+    const priceMatch = text.match(/\$\d+(?:\.\d{2})?/);
+    if (priceMatch) return priceMatch[0];
+    const freeMatch = text.match(/\bfree\b/i);
+    return freeMatch ? 'Free' : '';
+}
+
+function extractSupportActs(text) {
+    const supports = new Set();
+    const lines = text.split(/\n+/).map(strip).filter(Boolean);
+    const patterns = [
+        /with support(?:\s+from)?[:\-]?\s*(.+)/i,
+        /support[:\-]?\s*(.+)/i,
+    ];
+
+    const pushActs = (fragment = '') => {
+        let cleaned = strip(fragment.replace(/\*.*$/, ''));
+        cleaned = cleaned.split(/(?:EVENT DETAILS|SHOW DATE:|DATE:|TIME:|DOORS?:|LOCATION:|HEADLINER:|TICKETS?:)/i)[0];
+        cleaned = strip(cleaned);
+        cleaned = cleaned.replace(/^from\s+/i, '');
+        if (!cleaned || /^(tba|tbd|none|n\/a)$/i.test(cleaned)) return;
+        cleaned
+            .split(/\s+\+\s+|\s+\|\s+|\s*[,;]\s*/)
+            .map(strip)
+            .filter(Boolean)
+            .forEach((name) => {
+                supports.add(name.replace(/^and\s+/i, '').trim());
+            });
+    };
+
+    for (const line of lines) {
+        for (const pattern of patterns) {
+            const match = line.match(pattern);
+            if (match && match[1]) pushActs(match[1]);
+        }
+    }
+
+    return [...supports];
+}
+
+function buildJsonUrl(baseUrl, offset) {
+    const url = new URL(baseUrl || DEFAULT_URL);
+    url.searchParams.set('format', 'json');
+    if (offset) url.searchParams.set('offset', offset);
+    return url.toString();
+}
+
+function buildRecords(item) {
+    const eventUrl = new URL(item.fullUrl || '', BASE_HOST).toString();
+    const bodyText = htmlToText(item.body || '');
+    const description = htmlToText(item.excerpt || '');
+    const eventDate = formatDate(item.startDate || item.structuredContent?.startDate);
+    const eventTime = formatTime(item.startDate || item.structuredContent?.startDate);
+    const doorsTime = extractDoorsTime(bodyText);
+    const price = extractPrice(bodyText);
+    const supportActs = extractSupportActs(bodyText);
+    const headliner = strip((item.title || '').replace(/\sat\s+haute\s+spot.*$/i, '')) || VENUE_NAME;
+    const scrapedAt = new Date().toISOString();
+
+    const records = [{
+        artist: headliner,
+        role: 'headliner',
+        eventDate,
+        eventTime,
+        doorsTime,
+        venue: VENUE_NAME,
+        eventUrl,
+        price,
+        description,
+        scrapedAt,
+    }];
+
+    for (const support of supportActs) {
+        if (support.toLowerCase() === headliner.toLowerCase()) continue;
+        records.push({
+            artist: support,
+            role: 'support',
+            eventDate,
+            eventTime,
+            doorsTime,
+            venue: VENUE_NAME,
+            eventUrl,
+            price,
+            description,
+            scrapedAt,
+        });
+    }
+
+    return records;
+}
+
+async function fetchJson(url) {
+    const res = await fetch(url, {
+        headers: { 'user-agent': 'Mozilla/5.0 (compatible; calendar-crawler/1.0)' },
+    });
+    if (!res.ok) throw new Error(`Request failed ${res.status} for ${url}`);
+    return res.json();
+}
+
+Actor.main(async () => {
+    const input = await Actor.getInput() || {};
+    const {
+        startUrl = DEFAULT_URL,
+        maxEvents = 200,
+        maxPages = 5,
+    } = input;
+
+    const records = [];
+    let offset;
+    let page = 0;
+    let eventCount = 0;
+    const now = Date.now();
+
+    log.info('Starting Haute Spot scraper...');
+
+    pageLoop: while (true) {
+        if (maxPages > 0 && page >= maxPages) {
+            log.info(`Reached maxPages (${maxPages}), stopping pagination.`);
+            break;
+        }
+
+        const jsonUrl = buildJsonUrl(startUrl, offset);
+        log.info(`Fetching ${jsonUrl}`);
+        const data = await fetchJson(jsonUrl);
+        page += 1;
+
+        const pageItems = [
+            ...(data.upcoming || []),
+            ...(data.past || []),
+        ];
+
+        const futureItems = pageItems.filter((item) => (item.startDate || 0) >= (now - PAST_THRESHOLD_MS));
+        if (futureItems.length === 0 && (data.upcoming || []).length === 0) {
+            log.info('Encountered past-only page, ending crawl.');
+            break;
+        }
+
+        for (const item of futureItems) {
+            if (maxEvents > 0 && eventCount >= maxEvents) {
+                log.info(`Reached maxEvents (${maxEvents}), stopping.`);
+                break pageLoop;
+            }
+
+            const eventRecords = buildRecords(item);
+            records.push(...eventRecords);
+            eventCount += 1;
+        }
+
+        if (!data.pagination?.nextPage) break;
+        offset = data.pagination.nextPageOffset;
+    }
+
+    if (records.length) {
+        await Actor.pushData(records);
+    } else {
+        log.warning('No records scraped.');
+    }
+
+    log.info(`Finished. Events processed: ${eventCount}. Artist rows saved: ${records.length}.`);
+});

@@ -1,0 +1,24 @@
+{
+    "title": "C-Boy's Heart & Soul Calendar Scraper Input",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "daysAhead": {
+            "title": "Days Ahead",
+            "type": "integer",
+            "description": "How many days of events to fetch from the calendar (starting today).",
+            "default": 120,
+            "minimum": 1,
+            "editor": "number"
+        },
+        "maxEvents": {
+            "title": "Max Events",
+            "type": "integer",
+            "description": "Maximum number of events to fetch (0 = no limit).",
+            "default": 500,
+            "minimum": 0,
+            "editor": "number"
+        }
+    },
+    "required": []
+}

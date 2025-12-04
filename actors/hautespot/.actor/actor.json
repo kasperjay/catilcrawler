@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "haute-spot-calendar-scraper",
+  "title": "Haute Spot Calendar Scraper",
+  "description": "Scrapes Haute Spot calendar listings and captures headliners plus support acts from event details.",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "gpt-5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}

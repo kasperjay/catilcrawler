@@ -1,0 +1,13 @@
+{
+    "actorSpecification": 1,
+    "name": "cboys-calendar-scraper",
+    "title": "C-Boy's Heart & Soul Calendar Scraper",
+    "description": "Fetches events from the C-Boy's Timely calendar and outputs one record per performing artist.",
+    "version": "1.0",
+    "meta": {
+        "generatedBy": "gpt-5"
+    },
+    "input": "./input_schema.json",
+    "dockerfile": "./Dockerfile",
+    "readme": "./README.md"
+}

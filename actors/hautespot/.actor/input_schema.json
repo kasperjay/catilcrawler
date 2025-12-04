@@ -1,0 +1,30 @@
+{
+  "title": "Haute Spot Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Calendar URL",
+      "type": "string",
+      "description": "Haute Spot calendar page to fetch (JSON format will be requested automatically).",
+      "default": "https://hautespot.live/calendar",
+      "prefill": "https://hautespot.live/calendar",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of events to collect (0 = unlimited, counts events not artist rows).",
+      "default": 200,
+      "minimum": 0
+    },
+    "maxPages": {
+      "title": "Max Pages",
+      "type": "integer",
+      "description": "Maximum number of calendar pages to paginate through.",
+      "default": 5,
+      "minimum": 1
+    }
+  },
+  "required": ["startUrl"]
+}

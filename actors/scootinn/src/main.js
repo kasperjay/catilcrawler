@@ -232,40 +232,52 @@ const crawler = new PlaywrightCrawler({
             // Try to get lineup from Ticketmaster event page JSON data
             let lineupArtists = [];
             try {
-                const tmPageHtml = await page.evaluate((eventUrl) => {
-                    return fetch(eventUrl)
-                        .then(r => r.text())
-                        .catch(() => null);
-                }, url);
+                // Open Ticketmaster page in a new tab to avoid navigation conflicts
+                const context = page.context();
+                const tmPage = await context.newPage();
                 
-                if (tmPageHtml) {
-                    // Extract __NEXT_DATA__ JSON from the page
-                    const jsonMatch = tmPageHtml.match(/<script id="__NEXT_DATA__" type="application\/json"[^>]*>(.*?)<\/script>/);
-                    if (jsonMatch && jsonMatch[1]) {
-                        const data = JSON.parse(jsonMatch[1]);
-                        const discoveryEvent = data?.props?.pageProps?.edpData?.context?.discoveryEvent;
-                        
-                        if (discoveryEvent?.artists && Array.isArray(discoveryEvent.artists)) {
-                            // Artists with rank > 1 are typically support acts
-                            const supportActs = discoveryEvent.artists
-                                .filter(artist => artist.rank > 1)
-                                .map(artist => artist.name);
+                try {
+                    await tmPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                    const tmPageHtml = await tmPage.content();
+                    
+                    if (tmPageHtml) {
+                        // Extract __NEXT_DATA__ JSON from the page
+                        const jsonMatch = tmPageHtml.match(/<script id="__NEXT_DATA__" type="application\/json"[^>]*>(.*?)<\/script>/);
+                        if (jsonMatch && jsonMatch[1]) {
+                            const data = JSON.parse(jsonMatch[1]);
+                            const discoveryEvent = data?.props?.pageProps?.edpData?.context?.discoveryEvent;
                             
-                            for (const supportAct of supportActs) {
-                                // Clean up names like "Magic City Hippies with SUPERTASTE" -> "SUPERTASTE"
-                                let cleanedName = supportAct;
-                                const withMatch = supportAct.match(/\bwith\s+(.+)$/i);
-                                if (withMatch) {
-                                    cleanedName = withMatch[1];
-                                }
+                            if (discoveryEvent?.artists && Array.isArray(discoveryEvent.artists)) {
+                                // Artists with rank > 1 are typically support acts
+                                const supportActs = discoveryEvent.artists
+                                    .filter(artist => artist.rank > 1)
+                                    .map(artist => artist.name);
                                 
-                                cleanedName = cleanArtistName(cleanedName);
-                                if (cleanedName && !titleArtists.some(a => a.name === cleanedName)) {
-                                    lineupArtists.push({ name: cleanedName, role: 'support' });
+                                for (const supportAct of supportActs) {
+                                    // Clean up names like "Magic City Hippies with SUPERTASTE" -> "SUPERTASTE"
+                                    let cleanedName = supportAct;
+                                    const withMatch = supportAct.match(/\bwith\s+(.+)$/i);
+                                    if (withMatch) {
+                                        cleanedName = withMatch[1];
+                                    }
+                                    
+                                    cleanedName = cleanArtistName(cleanedName);
+                                    
+                                    // Skip if name matches any title artist (case-insensitive)
+                                    const isDuplicate = titleArtists.some(a => 
+                                        a.name.toLowerCase() === cleanedName.toLowerCase()
+                                    );
+                                    
+                                    if (cleanedName && !isDuplicate) {
+                                        lineupArtists.push({ name: cleanedName, role: 'support' });
+                                    }
                                 }
                             }
                         }
                     }
+                } finally {
+                    // Always close the temporary page
+                    await tmPage.close();
                 }
             } catch (err) {
                 log.warning(`Failed to extract lineup from Ticketmaster for ${title}: ${err.message}`);
