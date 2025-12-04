@@ -1,0 +1,38 @@
+{
+  "title": "The Cut Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "venueName": {
+      "title": "Venue Name (DICE)",
+      "type": "string",
+      "description": "Venue name filter used by the DICE API.",
+      "default": "The Cut ATX",
+      "prefill": "The Cut ATX",
+      "editor": "textfield"
+    },
+    "apiKey": {
+      "title": "DICE API Key",
+      "type": "string",
+      "description": "Public API key used by the DICE embed.",
+      "default": "C2JLpHUcdm629vcY5hZHN1dToisUF13BozvsXK57",
+      "editor": "textfield"
+    },
+    "pageSize": {
+      "title": "Page Size",
+      "type": "integer",
+      "description": "How many events to request per API page.",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 200
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of events to collect (0 = unlimited).",
+      "default": 200,
+      "minimum": 0
+    }
+  },
+  "required": ["venueName", "apiKey"]
+}

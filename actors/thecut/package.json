@@ -1,0 +1,15 @@
+{
+  "name": "thecut-crawler",
+  "version": "1.0.0",
+  "description": "Scrapes events for The Cut ATX from the DICE API, including lineup support acts.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.0.0"
+  },
+  "author": "Calendar Crawlers",
+  "license": "MIT"
+}

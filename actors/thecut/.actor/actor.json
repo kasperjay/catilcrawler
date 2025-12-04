@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "the-cut-calendar-scraper",
+  "title": "The Cut ATX Calendar Scraper",
+  "description": "Scrapes The Cut ATX events from the DICE API and captures headliners plus lineup support acts.",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-empty",
+    "generatedBy": "gpt-5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}

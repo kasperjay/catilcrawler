@@ -5,6 +5,20 @@ function strip(text = '') {
     return text.replace(/\s+/g, ' ').trim();
 }
 
+function stripTrailingDate(text = '') {
+    if (!text) return '';
+    let t = text;
+    // Remove trailing month/day or numeric dates
+    t = t.replace(/\s*[-–—|,]\s*(?:mon|tue|wed|thu|fri|sat|sun)?\s*(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:,\s*\d{2,4})?\s*$/i, '');
+    t = t.replace(/\s*[-–—|,]\s*\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\s*$/i, '');
+    t = t.replace(/\s*\b\d{1,2}(?:st|nd|rd|th)\b\s*$/i, '');
+    return strip(t);
+}
+
+function normalizeArtistName(text = '') {
+    return stripTrailingDate(strip(text));
+}
+
 function monthIndex(name) {
     const m = name?.slice(0, 3).toLowerCase();
     return {
@@ -59,7 +73,7 @@ function splitArtists(raw) {
     // split by common separators but be conservative with commas
     const parts = t
         .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*/i)
-        .map(s => strip(s))
+        .map(s => normalizeArtistName(s))
         .filter(Boolean);
     return [...new Set(parts)];
 }
@@ -80,6 +94,7 @@ function isLikelyArtist(name) {
     if (lower.includes('fire and ') || lower.includes('most iconic')) return false;
     // Filter out text with dates or weekdays (likely event descriptions)
     if (/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(s)) return false;
+    if (/\d{1,2}\/\d{1,2}(?:\/\d{2,4})?$/.test(s)) return false;
     // Filter out COVID/cancellation text
     if (lower.includes('covid') || lower.includes('cancel')) return false;
     // Avoid standalone stage/venue names
@@ -153,6 +168,8 @@ const crawler = new PlaywrightCrawler({
             
             // Combine and deduplicate artists
             const allArtists = [...fromList, ...fromTitle, ...fromSubtitle, ...fromWith]
+                .map(normalizeArtistName)
+                .filter(Boolean)
                 .filter(isLikelyArtist)
                 .filter((name, idx, arr) => {
                     const lower = name.toLowerCase();
@@ -229,9 +246,9 @@ const crawler = new PlaywrightCrawler({
             
             // Store artist info from listing
             for (const link of links) {
-                const fromTitle = link.title.split(/\bw\/|\bwith\b/).map(s => strip(s)).filter(Boolean);
-                const fromSubtitle = link.subtitle.split(/\bw\/|\bwith\b/).map(s => strip(s)).filter(Boolean);
-                const unique = [...new Set([...fromTitle, ...fromSubtitle])].filter(isLikelyArtist);
+                const fromTitle = link.title.split(/\bw\/|\bwith\b/).map(s => normalizeArtistName(s)).filter(Boolean);
+                const fromSubtitle = link.subtitle.split(/\bw\/|\bwith\b/).map(s => normalizeArtistName(s)).filter(Boolean);
+                const unique = [...new Set([...fromTitle, ...fromSubtitle])].map(normalizeArtistName).filter(isLikelyArtist);
                 if (unique.length) {
                     listArtistsByUrl.set(link.url, unique);
                 }
