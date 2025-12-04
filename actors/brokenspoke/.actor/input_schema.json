@@ -1,0 +1,30 @@
+{
+  "title": "Broken Spoke Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Calendar URL",
+      "type": "string",
+      "description": "Broken Spoke events calendar page.",
+      "default": "https://www.brokenspokeaustintx.net/events-calendar",
+      "prefill": "https://www.brokenspokeaustintx.net/events-calendar",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of event lines to process (0 = unlimited).",
+      "default": 300,
+      "minimum": 0
+    },
+    "requestTimeoutSecs": {
+      "title": "Request Timeout (secs)",
+      "type": "integer",
+      "description": "Timeout for the page load.",
+      "default": 120,
+      "minimum": 30
+    }
+  },
+  "required": ["startUrl"]
+}

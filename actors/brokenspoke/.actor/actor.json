@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "broken-spoke-calendar-scraper",
+  "title": "Broken Spoke Calendar Scraper",
+  "description": "Scrapes the Broken Spoke events calendar and extracts headliners plus support acts listed inline.",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-playwright",
+    "generatedBy": "gpt-5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}
