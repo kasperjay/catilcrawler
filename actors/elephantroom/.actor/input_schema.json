@@ -1,0 +1,30 @@
+{
+  "title": "Elephant Room Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "startUrl": {
+      "title": "Calendar URL",
+      "type": "string",
+      "description": "Elephant Room calendar page.",
+      "default": "https://elephantroom.com/calendar",
+      "prefill": "https://elephantroom.com/calendar",
+      "editor": "textfield"
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of artist rows to emit (0 = unlimited).",
+      "default": 400,
+      "minimum": 0
+    },
+    "requestTimeoutSecs": {
+      "title": "Request Timeout (secs)",
+      "type": "integer",
+      "description": "Timeout for page load/processing.",
+      "default": 90,
+      "minimum": 30
+    }
+  },
+  "required": ["startUrl"]
+}

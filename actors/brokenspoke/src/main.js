@@ -35,7 +35,22 @@ function extractEventTime(line) {
 }
 
 function cleanName(text = '') {
-    return strip(text.replace(/(dancehall|restaurant).*$/i, '').replace(/\d.+$/g, '')).replace(/\s+w\/$/i, '');
+    let t = strip(text);
+    t = t.replace(/(dancehall|restaurant).*$/i, '');
+    t = t.replace(/\d.*$/g, '');
+    t = t.replace(/\s+w\/$/i, '');
+    t = t.replace(/\bband\b$/i, '').replace(/&$/g, '');
+    t = t.replace(/[|]+$/g, '');
+    return strip(t);
+}
+
+function isGenericName(name = '') {
+    const n = name.toLowerCase();
+    if (!n) return true;
+    const banned = ['band', 'restaurant', 'dancehall', 'closed', 'tbd', 'tba'];
+    if (banned.includes(n)) return true;
+    if (n.length < 2) return true;
+    return false;
 }
 
 function parseLine(line, currentYear) {
@@ -53,14 +68,16 @@ function parseLine(line, currentYear) {
     // Headliner: text before first connector or time
     const headlinerChunk = strip(afterDash.split(/(?:w\/|&)/i)[0] || afterDash);
     const headliner = cleanName(headlinerChunk);
-    if (!headliner) return null;
+    if (!headliner || isGenericName(headliner)) return null;
 
     // Support acts
     const support = [];
     const supportMatches = [...afterDash.matchAll(/(?:w\/|&)\s*([^&]+)/gi)];
     for (const m of supportMatches) {
         const name = cleanName(m[1]);
-        if (name && name.toLowerCase() !== headliner.toLowerCase()) support.push(name);
+        if (name && !isGenericName(name) && name.toLowerCase() !== headliner.toLowerCase()) {
+            support.push(name);
+        }
     }
 
     const eventTime = extractEventTime(afterDash);
