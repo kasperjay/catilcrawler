@@ -1,6 +1,13 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 // Non-concert event keywords for filtering
 const NON_CONCERT_KEYWORDS = [
     'bingo', 'rock and roll bingo', 'trivia', 'karaoke', 'open mic', 'open-mic',

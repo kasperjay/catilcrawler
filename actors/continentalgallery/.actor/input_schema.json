@@ -1,0 +1,22 @@
+{
+  "title": "Continental Gallery Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "daysAhead": {
+      "title": "Days Ahead",
+      "type": "integer",
+      "description": "How many days ahead to fetch events from Timely.",
+      "default": 120,
+      "minimum": 1
+    },
+    "maxEvents": {
+      "title": "Max Events",
+      "type": "integer",
+      "description": "Maximum number of artist rows to emit (0 = unlimited).",
+      "default": 400,
+      "minimum": 0
+    }
+  },
+  "required": []
+}

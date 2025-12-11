@@ -7,9 +7,10 @@ Actor.pushData = async (record) => {
     const output = { ...record, artistName };
     return originalPushData(output);
 };
+// Timely API settings (shared with Continental Club; venue ID targets The Gallery)
 const API_URL = 'https://timelyapp.time.ly/api/calendars/54714987/events';
 const API_KEY = 'c6e5e0363b5925b28552de8805464c66f25ba0ce';
-const VENUE_ID = '678194628'; // Austin location
+const VENUE_ID = '678194627'; // The Continental Gallery
 const TIMEZONE = 'America/Chicago';
 
 function decodeHtmlEntities(text = '') {
@@ -47,15 +48,13 @@ function normalizePrice(event) {
     const raw = event.cost || event.cost_display || '';
     if (!raw || raw === '0') return '';
     let text = stripHtml(raw).replace(/&#036;/g, '$');
-    // Remove embedded set times from price field
     text = text.replace(/@\d{1,2}(?:[:\d]{0,3})?(?:am|pm)/gi, '').trim();
-    // Collapse extra whitespace and trailing punctuation spacing
     text = text.replace(/\s+([.,])/g, '$1');
     return text;
 }
 
 function createEventRecord(event, overrides = {}) {
-    const venueName = event.taxonomies?.taxonomy_venue?.[0]?.title || 'The Continental Club';
+    const venueName = 'The Continental Gallery';
     const base = {
         artist: event.title || '',
         eventDate: formatDate(event.start_datetime),
@@ -69,7 +68,6 @@ function createEventRecord(event, overrides = {}) {
     return { ...base, ...overrides, artist: (overrides.artist || base.artist).trim() };
 }
 
-// Convert a compact time fragment like "10pm" / "9:30pm" to "10:00 pm" / "9:30 pm"
 function normalizeInlineTime(fragment) {
     if (!fragment) return '';
     const m = fragment.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)$/i);
@@ -80,12 +78,16 @@ function normalizeInlineTime(fragment) {
     return `${hour}:${minutes} ${suffix}`;
 }
 
-// Split multi-artist titles of the form "Artist A @9pm, Artist B @10:30pm, Artist C @12am"
+function formatTimeGuess(raw) {
+    if (!raw) return '';
+    const cleaned = raw.toLowerCase().replace(/\s+/g, '');
+    return normalizeInlineTime(cleaned);
+}
+
 function splitMultiArtistTitle(title) {
     if (!title) return [];
     const hasMultipleAt = (title.match(/@\d{1,2}/g) || []).length > 1;
     if (!hasMultipleAt) return [];
-    // Simple split on commas; Timely titles separate set descriptors by comma
     const segments = title.split(',').map(s => s.trim()).filter(Boolean);
     const results = [];
     for (const seg of segments) {
@@ -95,33 +97,23 @@ function splitMultiArtistTitle(title) {
             const timeFragment = normalizeInlineTime(match[2].replace(/\s+/g, '')) || formatTimeGuess(match[2]);
             results.push({ artist: artistName, eventTime: timeFragment });
         }
-        // Skip segments without @time pattern - they're likely extra description/pricing text
     }
     return results;
-}
-
-function formatTimeGuess(raw) {
-    if (!raw) return '';
-    const cleaned = raw.toLowerCase().replace(/\s+/g, '');
-    return normalizeInlineTime(cleaned);
 }
 
 function formatDateParam(date) {
     return date.toISOString().split('T')[0];
 }
 
-// Dedupe by artist name only (case-insensitive) keeping first occurrence (earliest in crawl order)
 function dedupeByArtist(records) {
-    const seen = new Set();
-    const result = [];
+    const byArtist = new Map();
     for (const r of records) {
         const key = r.artist.toLowerCase();
-        if (!seen.has(key)) {
-            seen.add(key);
-            result.push(r);
+        if (!byArtist.has(key)) {
+            byArtist.set(key, r);
         }
     }
-    return result;
+    return [...byArtist.values()];
 }
 
 async function fetchEvents({ daysAhead, maxEvents }) {
@@ -186,14 +178,14 @@ async function fetchEvents({ daysAhead, maxEvents }) {
     return events;
 }
 
-console.log('Starting Continental Club calendar scraper via Timely API...');
+console.log('Starting Continental Gallery calendar scraper via Timely API...');
 
 await Actor.init();
 
 const input = await Actor.getInput() || {};
 const {
-    daysAhead = 90,
-    maxEvents = 300,
+    daysAhead = 120,
+    maxEvents = 400,
 } = input;
 
 try {
@@ -203,17 +195,17 @@ try {
     if (deduped.length === 0) {
         console.warn('No events returned from Timely API');
     } else {
-        console.log(`Fetched ${events.length} events from Continental Club; ${deduped.length} after artist dedupe (${events.length - deduped.length} removed).`);
+        console.log(`Fetched ${deduped.length} unique artists (from ${events.length} rows).`);
     }
 
     for (const event of deduped) {
         await Actor.pushData(event);
     }
 } catch (error) {
-    console.error('Failed to fetch Continental Club events:', error);
+    console.error('Failed to fetch Continental Gallery events:', error);
     throw error;
 }
 
-console.log('Continental Club calendar scraper finished!');
+console.log('Continental Gallery calendar scraper finished!');
 
 await Actor.exit();

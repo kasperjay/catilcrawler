@@ -1,5 +1,12 @@
 import { Actor } from 'apify';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 const API_URL = 'https://thesaxonpub.com/wp-json/tribe/events/v1/events';
 
 function formatDateForDisplay(dateString) {

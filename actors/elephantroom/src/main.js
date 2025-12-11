@@ -1,6 +1,13 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 const VENUE = 'Elephant Room';
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -113,11 +120,20 @@ Actor.main(async () => {
 
     await crawler.run([startUrl]);
 
-    if (items.length === 0) {
+    const deduped = [];
+    const seen = new Set();
+    for (const item of items) {
+        const key = item.artist.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(item);
+    }
+
+    if (deduped.length === 0) {
         log.warning('No events parsed.');
         return;
     }
 
-    await Actor.pushData(items);
-    log.info(`Saved ${items.length} artist rows from ${VENUE}.`);
+    await Actor.pushData(deduped);
+    log.info(`Saved ${deduped.length} unique artist rows from ${VENUE} (deduped from ${items.length}).`);
 });

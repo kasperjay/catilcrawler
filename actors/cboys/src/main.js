@@ -1,5 +1,12 @@
 import { Actor } from 'apify';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 const API_URL = 'https://timelyapp.time.ly/api/calendars/54714969/events';
 const API_KEY = 'c6e5e0363b5925b28552de8805464c66f25ba0ce';
 const VENUE_ID = '678194631';

@@ -1,0 +1,15 @@
+{
+  "name": "continentalgallery-crawler",
+  "version": "1.0.0",
+  "description": "Scrapes The Continental Gallery calendar via Timely API, capturing all artists per day.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.0.0"
+  },
+  "author": "Calendar Crawlers",
+  "license": "MIT"
+}

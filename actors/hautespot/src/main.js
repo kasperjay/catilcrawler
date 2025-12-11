@@ -1,6 +1,13 @@
 import { Actor } from 'apify';
 import { log } from 'crawlee';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 const DEFAULT_URL = 'https://hautespot.live/calendar';
 const BASE_HOST = 'https://hautespot.live';
 const VENUE_NAME = 'Haute Spot';
@@ -147,11 +154,24 @@ function buildRecords(item) {
 }
 
 async function fetchJson(url) {
-    const res = await fetch(url, {
-        headers: { 'user-agent': 'Mozilla/5.0 (compatible; calendar-crawler/1.0)' },
-    });
-    if (!res.ok) throw new Error(`Request failed ${res.status} for ${url}`);
-    return res.json();
+    const headers = { 'user-agent': 'Mozilla/5.0 (compatible; calendar-crawler/1.0)' };
+    const maxAttempts = 4;
+    let lastError;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const res = await fetch(url, { headers });
+            if (!res.ok) throw new Error(`Request failed ${res.status}`);
+            return await res.json();
+        } catch (err) {
+            lastError = err;
+            const isFinal = attempt === maxAttempts;
+            const backoff = 500 * attempt;
+            log.warning(`Fetch attempt ${attempt}/${maxAttempts} failed for ${url}: ${err.message}${isFinal ? '' : ` (retrying in ${backoff}ms)`}`);
+            if (isFinal) break;
+            await Actor.sleep(backoff);
+        }
+    }
+    throw new Error(`Failed to fetch ${url}: ${lastError?.message || 'unknown error'}`);
 }
 
 Actor.main(async () => {
@@ -207,11 +227,19 @@ Actor.main(async () => {
         offset = data.pagination.nextPageOffset;
     }
 
-    if (records.length) {
-        await Actor.pushData(records);
+    const deduped = [];
+    const seen = new Set();
+    for (const r of records) {
+        const key = r.artist.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(r);
+    }
+
+    if (deduped.length) {
+        await Actor.pushData(deduped);
+        log.info(`Finished. Events processed: ${eventCount}. Artist rows saved: ${deduped.length} (deduped from ${records.length}).`);
     } else {
         log.warning('No records scraped.');
     }
-
-    log.info(`Finished. Events processed: ${eventCount}. Artist rows saved: ${records.length}.`);
 });

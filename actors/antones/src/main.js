@@ -1,6 +1,13 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler } from 'crawlee';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 function strip(text = '') {
     return text.replace(/\s+/g, ' ').trim();
 }
@@ -25,7 +32,7 @@ function parseTimeFromText(text) {
     if (!text) return '';
     // Look for time patterns like "8:00pm" or "8:00 pm"
     const match = text.match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
-    if (match) {`1`q````                                                        
+    if (match) {
         return `${match[1]}:${match[2]} ${match[3].toLowerCase()}`;
     }
     return strip(text);
@@ -248,6 +255,16 @@ function isNonConcert(text) {
     return keywords.some(k => t.includes(k));
 }
 
+function dedupeByArtist(records) {
+    const map = new Map();
+    for (const record of records) {
+        const key = (record.artist || '').toLowerCase();
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, record);
+    }
+    return [...map.values()];
+}
+
 console.log('Starting Antone\'s Nightclub scraper (Playwright)...');
 await Actor.init();
 
@@ -394,14 +411,15 @@ const crawler = new PlaywrightCrawler({
 });
 
 // Start crawl
-awai                                t crawler.run([{
+await crawler.run([{
     url: startUrl,
     userData: { label: 'CALENDAR' }
 }]);
 
 // Save results
-console.log(`Scraped ${items.length} artist records from Antone's Nightclub`);
-for (const item of items) {
+const deduped = dedupeByArtist(items);
+console.log(`Scraped ${items.length} artist records from Antone's Nightclub, ${deduped.length} unique artists after dedupe`);
+for (const item of deduped) {
     await Actor.pushData(item);
 }
 

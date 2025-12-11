@@ -6,7 +6,7 @@
   "version": "1.0",
   "meta": {
     "templateId": "js-playwright",
-    "generatedBy": "claude-sonnet-4.5"
+    "generatedBy": "gpt-5"
   },
   "dockerfile": "./Dockerfile",
   "input": "./input_schema.json",

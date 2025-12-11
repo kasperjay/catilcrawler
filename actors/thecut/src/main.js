@@ -1,5 +1,12 @@
 import { Actor } from 'apify';
 
+// Ensure uniform artistName field across outputs
+const originalPushData = Actor.pushData.bind(Actor);
+Actor.pushData = async (record) => {
+    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
+    const output = { ...record, artistName };
+    return originalPushData(output);
+};
 const API_URL = 'https://partners-endpoint.dice.fm/api/v2/events';
 const DEFAULT_VENUE = 'The Cut ATX';
 const DEFAULT_API_KEY = 'C2JLpHUcdm629vcY5hZHN1dToisUF13BozvsXK57';
@@ -135,11 +142,20 @@ Actor.main(async () => {
 
     const records = await fetchEvents({ venueName, apiKey, pageSize, maxEvents });
 
-    if (records.length === 0) {
+    const deduped = [];
+    const seen = new Set();
+    for (const r of records) {
+        const key = r.artist.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(r);
+    }
+
+    if (deduped.length === 0) {
         console.log('No records scraped.');
         return;
     }
 
-    await Actor.pushData(records);
-    console.log(`Finished. Saved ${records.length} artist rows from ${venueName}.`);
+    await Actor.pushData(deduped);
+    console.log(`Finished. Saved ${deduped.length} unique artist rows from ${venueName} (deduped from ${records.length}).`);
 });

@@ -1,0 +1,15 @@
+{
+  "actorSpecification": 1,
+  "name": "continental-gallery-calendar-scraper",
+  "title": "Continental Gallery Calendar Scraper",
+  "description": "Scrapes The Continental Gallery calendar via Timely API and emits all artists listed per day.",
+  "version": "1.0",
+  "meta": {
+    "templateId": "js-empty",
+    "generatedBy": "gpt-5"
+  },
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json",
+  "readme": "./README.md",
+  "storages": {}
+}
