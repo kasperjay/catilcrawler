@@ -69,7 +69,11 @@ async function fetchEvents(maxEvents, perPage) {
     const seenIds = new Set();
 
     const now = new Date();
-    const startDate = buildDateParam(now);
+    // Start from first of current month so mid-month runs still include earlier dates
+    const start = new Date(now);
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    const startDate = buildDateParam(start);
     const end = new Date(now);
     end.setFullYear(end.getFullYear() + 1);
     const endDate = buildDateParam(end, true);

@@ -12,7 +12,7 @@ const DEFAULT_URL = 'https://hautespot.live/calendar';
 const BASE_HOST = 'https://hautespot.live';
 const VENUE_NAME = 'Haute Spot';
 const TIME_ZONE = 'America/Chicago';
-const PAST_THRESHOLD_MS = 24 * 60 * 60 * 1000; // skip events more than a day old
+const PAST_THRESHOLD_MS = 24 * 60 * 60 * 1000; // deprecated; monthStart filter supersedes
 
 const strip = (text = '') => text.replace(/\s+/g, ' ').trim();
 
@@ -187,6 +187,10 @@ Actor.main(async () => {
     let page = 0;
     let eventCount = 0;
     const now = Date.now();
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthStartMs = monthStart.getTime();
 
     log.info('Starting Haute Spot scraper...');
 
@@ -206,13 +210,14 @@ Actor.main(async () => {
             ...(data.past || []),
         ];
 
-        const futureItems = pageItems.filter((item) => (item.startDate || 0) >= (now - PAST_THRESHOLD_MS));
-        if (futureItems.length === 0 && (data.upcoming || []).length === 0) {
-            log.info('Encountered past-only page, ending crawl.');
+        const windowItems = pageItems.filter((item) => (item.startDate || 0) >= monthStartMs);
+        const isAllPastOlder = windowItems.length === 0 && (data.upcoming || []).length === 0;
+        if (isAllPastOlder) {
+            log.info('No events in current-month window on this page, ending crawl.');
             break;
         }
 
-        for (const item of futureItems) {
+        for (const item of windowItems) {
             if (maxEvents > 0 && eventCount >= maxEvents) {
                 log.info(`Reached maxEvents (${maxEvents}), stopping.`);
                 break pageLoop;

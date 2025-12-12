@@ -238,7 +238,9 @@ function dedupeRecords(records) {
 async function fetchEvents({ daysAhead, maxEvents }) {
     const records = [];
     let page = 1;
+    // Start from the first day of the current month so mid-month runs include earlier dates
     const start = new Date();
+    start.setDate(1);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + daysAhead);

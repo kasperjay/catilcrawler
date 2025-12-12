@@ -127,7 +127,9 @@ function dedupeByArtist(records) {
 async function fetchEvents({ daysAhead, maxEvents }) {
     const events = [];
     let page = 1;
+    // Start from first day of month so runs later in the month still include earlier events
     const start = new Date();
+    start.setDate(1);
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + daysAhead);
