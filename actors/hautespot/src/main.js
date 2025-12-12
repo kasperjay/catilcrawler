@@ -1,11 +1,40 @@
 import { Actor } from 'apify';
 import { log } from 'crawlee';
 
-// Ensure uniform artistName field across outputs
+// Ensure uniform artistName + eventDate formatting across outputs
 const originalPushData = Actor.pushData.bind(Actor);
+
+function formatEventDateValue(value) {
+    if (value === undefined || value === null) return '';
+    let date;
+    if (value instanceof Date) {
+        date = value;
+    } else if (typeof value === 'number') {
+        date = new Date(value);
+    } else if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        const parsed = Date.parse(trimmed.replace(' ', 'T'));
+        if (!Number.isNaN(parsed)) {
+            date = new Date(parsed);
+        }
+    }
+    if (!date || Number.isNaN(date.getTime())) {
+        return typeof value === 'string' ? value.trim() : '';
+    }
+    return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+    });
+}
+
 Actor.pushData = async (record) => {
     const artistName = (record?.artistName ?? record?.artist ?? '').trim();
-    const output = { ...record, artistName };
+    const eventDateRaw = record?.eventDate ?? record?.eventDateText ?? record?.date ?? record?.startDate ?? record?.start_time ?? record?.dateAttr ?? record?.eventDateStr ?? record?.event_date;
+    const eventDate = formatEventDateValue(eventDateRaw);
+    const output = { ...record, artistName, eventDate };
     return originalPushData(output);
 };
 const DEFAULT_URL = 'https://hautespot.live/calendar';
