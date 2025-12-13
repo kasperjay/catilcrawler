@@ -1,0 +1,6 @@
+{
+  "startUrl": "https://mohawkaustin.com/",
+  "maxEvents": 200,
+  "maxConcurrency": 6,
+  "requestHandlerTimeoutSecs": 120
+}
