@@ -1,12 +1,12 @@
 {
-    "actorSpecification": 1,
-    "name": "come-and-take-it-calendar-scraper",
-    "title": "Come And Take It Productions – Calendar Scraper",
-    "description": "Scrapes the Come And Take It Productions calendar, visits each event page, and outputs one row per artist (headliner + supports).",
-    "version": "1.0",
-    "meta": {
-        "generatedBy": "gpt-5"
-    },
-    "input": "./input_schema.json",
-    "output": "./output_schema.json"
+  "actorSpecification": 1,
+  "name": "come-and-take-it-calendar-scraper",
+  "title": "Come And Take It Productions \u2013 Calendar Scraper",
+  "description": "Scrapes the Come And Take It Productions calendar, visits each event page, and outputs one row per artist (headliner + supports).",
+  "version": "1.0",
+  "meta": {
+    "generatedBy": "GPT-5"
+  },
+  "input": "./input_schema.json",
+  "output": "./output_schema.json"
 }

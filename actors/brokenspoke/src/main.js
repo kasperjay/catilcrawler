@@ -34,7 +34,9 @@ Actor.pushData = async (record) => {
     const artistName = (record?.artistName ?? record?.artist ?? '').trim();
     const eventDateRaw = record?.eventDate ?? record?.eventDateText ?? record?.date ?? record?.startDate ?? record?.start_time ?? record?.dateAttr ?? record?.eventDateStr ?? record?.event_date;
     const eventDate = formatEventDateValue(eventDateRaw);
-    const output = { ...record, artistName, eventDate };
+    const venueNameRaw = record?.venueName ?? record?.venue ?? "";
+    const venueName = typeof venueNameRaw === "string" ? venueNameRaw.trim() : venueNameRaw;
+    const output = { ...record, artistName, eventDate, venueName };
     return originalPushData(output);
 };
 const VENUE = 'Broken Spoke';

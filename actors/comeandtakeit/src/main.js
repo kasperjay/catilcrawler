@@ -1,8 +1,9 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
 
-// Ensure uniform artistName + eventDate formatting across outputs
+// Ensure uniform artistName + eventDate formatting across outputs and dedupe at source
 const originalPushData = Actor.pushData.bind(Actor);
+const pushedKeys = new Set();
 
 function formatEventDateValue(value) {
     if (value === undefined || value === null) return '';
@@ -34,7 +35,17 @@ Actor.pushData = async (record) => {
     const artistName = (record?.artistName ?? record?.artist ?? '').trim();
     const eventDateRaw = record?.eventDate ?? record?.eventDateText ?? record?.date ?? record?.startDate ?? record?.start_time ?? record?.dateAttr ?? record?.eventDateStr ?? record?.event_date;
     const eventDate = formatEventDateValue(eventDateRaw);
-    const output = { ...record, artistName, eventDate };
+    const venueNameRaw = record?.venueName ?? record?.venue ?? "";
+    const venueName = typeof venueNameRaw === "string" ? venueNameRaw.trim() : venueNameRaw;
+    const output = { ...record, artistName, eventDate, venueName };
+    const dedupeKey = `${output.eventUrl || output.eventTitle || ''}__${output.artistName || ''}__${output.eventDateText || output.eventDate || ''}`.toLowerCase();
+
+    if (pushedKeys.has(dedupeKey)) {
+        log.debug(`Skipping duplicate record for ${output.eventUrl || output.eventTitle}: ${output.artistName}`);
+        return;
+    }
+
+    pushedKeys.add(dedupeKey);
     return originalPushData(output);
 };
 // Embedded shared utilities
