@@ -5,7 +5,7 @@
   "description": "Scrapes the Come And Take It Productions calendar, visits each event page, and outputs one row per artist (headliner + supports).",
   "version": "1.0",
   "meta": {
-    "generatedBy": "GPT-5"
+    "generatedBy": "gpt-5"
   },
   "input": "./input_schema.json",
   "output": "./output_schema.json"

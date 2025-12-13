@@ -32,21 +32,42 @@ function formatEventDateValue(value) {
 }
 
 Actor.pushData = async (record) => {
-    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
-    const eventDateRaw = record?.eventDate ?? record?.eventDateText ?? record?.date ?? record?.startDate ?? record?.start_time ?? record?.dateAttr ?? record?.eventDateStr ?? record?.event_date;
-    const eventDate = formatEventDateValue(eventDateRaw);
-    const venueNameRaw = record?.venueName ?? record?.venue ?? "";
-    const venueName = typeof venueNameRaw === "string" ? venueNameRaw.trim() : venueNameRaw;
-    const output = { ...record, artistName, eventDate, venueName };
-    const dedupeKey = `${output.eventUrl || output.eventTitle || ''}__${output.artistName || ''}__${output.eventDateText || output.eventDate || ''}`.toLowerCase();
+    const pushOne = async (item) => {
+        const artistName = (item?.artistName ?? item?.artist ?? '').trim();
+        const venueName = (item?.venueName ?? item?.venue ?? '').trim();
+        const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const description = (item?.description ?? '').toString().trim();
+        const role = (item?.role ?? 'headliner') || 'headliner';
+        const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
+        const eventDate = formatEventDateValue(eventDateRaw);
+        const normalized = {
+            venueName,
+            artistName,
+            role,
+            eventTitle,
+            eventURL,
+            eventDate,
+            description,
+            scrapedAt: item?.scrapedAt || new Date().toISOString(),
+        };
 
-    if (pushedKeys.has(dedupeKey)) {
-        log.debug(`Skipping duplicate record for ${output.eventUrl || output.eventTitle}: ${output.artistName}`);
+        const dedupeKey = `${normalized.eventURL || normalized.eventTitle || ''}__${normalized.artistName || ''}__${normalized.eventDate || ''}`.toLowerCase();
+        if (pushedKeys.has(dedupeKey)) {
+            log.debug(`Skipping duplicate record for ${normalized.eventURL || normalized.eventTitle}: ${normalized.artistName}`);
+            return;
+        }
+
+        pushedKeys.add(dedupeKey);
+        return originalPushData(normalized);
+    };
+
+    if (Array.isArray(record)) {
+        for (const item of record) await pushOne(item);
         return;
     }
 
-    pushedKeys.add(dedupeKey);
-    return originalPushData(output);
+    return pushOne(record);
 };
 // Embedded shared utilities
 const NON_CONCERT_KEYWORDS = [

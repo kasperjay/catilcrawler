@@ -6,7 +6,7 @@
   "version": "1.0",
   "meta": {
     "templateId": "playwright-crawler",
-    "generatedBy": "GPT-5"
+    "generatedBy": "gpt-5"
   },
   "input": "./input_schema.json",
   "dockerfile": "./Dockerfile",
@@ -16,5 +16,6 @@
       "name": "APIFY_HEADLESS",
       "value": "1"
     }
-  ]
+  ],
+  "output": "./output_schema.json"
 }

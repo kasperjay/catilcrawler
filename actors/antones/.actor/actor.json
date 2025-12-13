@@ -6,11 +6,12 @@
   "version": "1.0",
   "meta": {
     "templateId": "js-playwright",
-    "generatedBy": "GPT-5"
+    "generatedBy": "gpt-5"
   },
   "dockerfile": "./Dockerfile",
   "input": "./input_schema.json",
   "readme": "./README.md",
   "changelog": "./CHANGELOG.md",
-  "storages": {}
+  "storages": {},
+  "output": "./output_schema.json"
 }

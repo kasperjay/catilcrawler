@@ -1,6 +1,66 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
 
+// Normalize outputs to a single shape
+const originalPushData = Actor.pushData.bind(Actor);
+
+function formatEventDateValue(value) {
+    if (value === undefined || value === null) return '';
+    let date;
+    if (value instanceof Date) {
+        date = value;
+    } else if (typeof value === 'number') {
+        date = new Date(value);
+    } else if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        const parsed = Date.parse(trimmed.replace(' ', 'T'));
+        if (!Number.isNaN(parsed)) {
+            date = new Date(parsed);
+        }
+    }
+    if (!date || Number.isNaN(date.getTime())) {
+        return typeof value === 'string' ? value.trim() : '';
+    }
+    return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+    });
+}
+
+Actor.pushData = async (record) => {
+    const pushOne = async (item) => {
+        const artistName = (item?.artistName ?? item?.artist ?? '').trim();
+        const venueName = (item?.venueName ?? item?.venue ?? '').trim();
+        const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const description = (item?.description ?? '').toString().trim();
+        const role = (item?.role ?? 'headliner') || 'headliner';
+        const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
+        const eventDate = formatEventDateValue(eventDateRaw);
+        const normalized = {
+            venueName,
+            artistName,
+            role,
+            eventTitle,
+            eventURL,
+            eventDate,
+            description,
+            scrapedAt: item?.scrapedAt || new Date().toISOString(),
+        };
+        return originalPushData(normalized);
+    };
+
+    if (Array.isArray(record)) {
+        for (const item of record) await pushOne(item);
+        return;
+    }
+
+    return pushOne(record);
+};
+
 Actor.main(async () => {
     const input = await Actor.getInput() || {};
 

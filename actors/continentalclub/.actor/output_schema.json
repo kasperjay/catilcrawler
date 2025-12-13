@@ -1,6 +1,6 @@
 {
   "actorOutputSchemaVersion": 1,
-  "title": "Output schema for Comeandtakeit",
+  "title": "Output schema for Continentalclub",
   "properties": {
     "dataset": {
       "type": "string",

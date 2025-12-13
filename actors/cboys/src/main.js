@@ -30,13 +30,34 @@ function formatEventDateValue(value) {
 }
 
 Actor.pushData = async (record) => {
-    const artistName = (record?.artistName ?? record?.artist ?? '').trim();
-    const eventDateRaw = record?.eventDate ?? record?.eventDateText ?? record?.date ?? record?.startDate ?? record?.start_time ?? record?.dateAttr ?? record?.eventDateStr ?? record?.event_date;
-    const eventDate = formatEventDateValue(eventDateRaw);
-    const venueNameRaw = record?.venueName ?? record?.venue ?? "";
-    const venueName = typeof venueNameRaw === "string" ? venueNameRaw.trim() : venueNameRaw;
-    const output = { ...record, artistName, eventDate, venueName };
-    return originalPushData(output);
+    const pushOne = async (item) => {
+        const artistName = (item?.artistName ?? item?.artist ?? '').trim();
+        const venueName = (item?.venueName ?? item?.venue ?? '').trim();
+        const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const description = (item?.description ?? '').toString().trim();
+        const role = (item?.role ?? 'headliner') || 'headliner';
+        const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
+        const eventDate = formatEventDateValue(eventDateRaw);
+        const normalized = {
+            venueName,
+            artistName,
+            role,
+            eventTitle,
+            eventURL,
+            eventDate,
+            description,
+            scrapedAt: item?.scrapedAt || new Date().toISOString(),
+        };
+        return originalPushData(normalized);
+    };
+
+    if (Array.isArray(record)) {
+        for (const item of record) await pushOne(item);
+        return;
+    }
+
+    return pushOne(record);
 };
 const API_URL = 'https://timelyapp.time.ly/api/calendars/54714969/events';
 const API_KEY = 'c6e5e0363b5925b28552de8805464c66f25ba0ce';
