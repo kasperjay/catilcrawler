@@ -160,13 +160,11 @@ const input = await Actor.getInput() || {};
 const startUrl = input.startUrl || 'https://mohawkaustin.com/';
 const maxEvents = Number(input.maxEvents) || 500;
 const maxConcurrency = Number(input.maxConcurrency) || 6;
-const requestHandlerTimeoutSecs = Number(input.requestHandlerTimeoutSecs) || 120;
+const requestHandlerTimeoutSecs = Number(input.requestHandlerTimeoutSecs) || 60;
 
-const items = [];
-const listArtistsByUrl = new Map();
-
+let pushedCount = 0;
 const crawler = new PlaywrightCrawler({
-    maxRequestsPerCrawl: maxEvents > 0 ? maxEvents + 5 : undefined,
+    maxRequestsPerCrawl: maxEvents > 0 ? maxEvents + 2 : undefined,
     maxConcurrency,
     requestHandlerTimeoutSecs,
     navigationTimeoutSecs: 30,
@@ -175,74 +173,13 @@ const crawler = new PlaywrightCrawler({
             headless: true,
         }
     },
-    requestHandler: async ({ page, request, log, crawler }) => {
-        if (request.userData.label === 'DETAIL') {
-            const url = page.url();
-            const title = strip((await page.textContent('main h1, .single-event h1, .event-title, h1.entry-title').catch(() => '')) || (await page.title().catch(() => '')));
-            const subtitle = strip((await page.textContent('main .event-subtitle, .single-event .event-subtitle, .subtitle, .subheadline').catch(() => '')) || '');
-            await page.waitForSelector('body', { timeout: 8000 }).catch(() => {});
-            const bodyText = strip(await page.evaluate(() => document.body.innerText || ''));
-
-            if (isNonConcert(`${title} ${bodyText}`)) return;
-
-            // Extract artists from multiple sources
-            const fromList = listArtistsByUrl.get(url) || [];
-            const fromTitle = splitArtists(title);
-            const fromSubtitle = splitArtists(subtitle);
-            
-            // Try to detect support from hero section
-            const heroText = strip((await page.textContent('main, article, .single-event').catch(() => '')) || '').slice(0, 1200);
-            const withMatch = (heroText.match(/\b(?:with|w\/)\s+([A-Za-z0-9][\w\s&'./+\-]+(?:\s*,\s*[A-Za-z0-9][\w\s&'./+\-]+)*)/i) || [])[1] || '';
-            const fromWith = splitArtists(withMatch);
-            
-            // Anchor-based hints (often artist names are linked)
-            const anchorHints = await page.$$eval('main a, article a, .single-event a', as => as
-                .map(a => (a.textContent || '').trim())
-                .filter(t => t && !/ticket|buy|eventim|mohawk/i.test(t) && t.length <= 60));
-            const fromAnchors = splitArtists(anchorHints.join(', '));
-            
-            // Combine and deduplicate by lowercase comparison
-            const allArtists = [...fromList, ...fromTitle, ...fromSubtitle, ...fromWith, ...fromAnchors]
-                .filter(isLikelyArtist)
-                .filter((name, idx, arr) => {
-                    // Keep only first occurrence (case-insensitive)
-                    const lower = name.toLowerCase();
-                    return arr.findIndex(n => n.toLowerCase() === lower) === idx;
-                });
-            
-            // Determine headliner (likely the first from title) and support acts
-            const headliner = fromTitle.filter(isLikelyArtist)[0] || allArtists[0];
-            const support = allArtists.filter(a => a.toLowerCase() !== headliner?.toLowerCase());
-            const artists = headliner ? [headliner, ...support] : allArtists;
-            const eventDate = parseDateFromText(bodyText);
-            const { showTime, doorsTime } = parseTimesFromText(bodyText);
-            const price = (bodyText.match(/\$\d+(?:\.\d{2})?/g) || []).join(', ') || (bodyText.match(/free|sold out/i) || [''])[0];
-            const stage = (bodyText.match(/\b(indoor|outdoor)\b/i) || [])[1];
-
-            for (let i = 0; i < artists.length; i++) {
-                const role = i === 0 ? 'headliner' : 'support';
-                items.push({
-                    artist: artists[i],
-                    description: subtitle,
-                    eventDate,
-                    eventTime: showTime,
-                    doorsTime,
-                    venue: stage ? (stage.toLowerCase() === 'indoor' ? 'Indoor' : 'Outdoor') : 'Mohawk Austin',
-                    eventUrl: url,
-                    price: strip(price || ''),
-                    role,
-                    scrapedAt: new Date().toISOString(),
-                });
-            }
-            return;
-        }
-
-        // Listing page: gather and paginate, enqueue detail pages
-        await page.goto(startUrl, { waitUntil: 'networkidle' });
-        await page.waitForTimeout(800);
+    requestHandler: async ({ page, log }) => {
+        await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(250);
 
         const seen = new Set();
-        async function harvestList() {
+
+        async function harvestAndPush() {
             const rows = await page.$$eval('a[href*="/event/"], a[href*="/event/?id="]', (anchors) => {
                 const out = [];
                 for (const a of anchors) {
@@ -256,50 +193,55 @@ const crawler = new PlaywrightCrawler({
                 }
                 return out;
             });
+
             for (const r of rows) {
+                if (maxEvents > 0 && pushedCount >= maxEvents) break;
                 if (seen.has(r.url)) continue;
-                // Parse title and subtitle separately, then combine unique artists
                 const fromTitle = splitArtists(r.title);
                 const fromSubtitle = splitArtists(r.subtitle);
-                const unique = [...new Set([...fromTitle, ...fromSubtitle])].filter(isLikelyArtist);
-                if (unique.length) listArtistsByUrl.set(r.url, unique);
+                const artists = [...new Set([...fromTitle, ...fromSubtitle])].filter(isLikelyArtist);
+                if (!artists.length) continue;
+                seen.add(r.url);
+
+                const eventTitle = r.title || r.subtitle || '';
+                const description = r.subtitle || r.title || '';
+
+                for (let i = 0; i < artists.length; i++) {
+                    if (maxEvents > 0 && pushedCount >= maxEvents) break;
+                    const role = i === 0 ? 'headliner' : 'support';
+                    pushedCount += 1;
+                    await Actor.pushData({
+                        venueName: 'Mohawk Austin',
+                        artistName: artists[i],
+                        role,
+                        eventTitle,
+                        eventURL: r.url,
+                        eventDate: '',
+                        description,
+                        scrapedAt: new Date().toISOString(),
+                    });
+                }
             }
-            return rows.length;
-        }
-        async function enqueueAll() {
-            const links = await page.$$eval('a[href*="/event/"], a[href*="/event/?id="]', as => as.map(a => a.href).filter(Boolean));
-            const newOnes = links.filter(href => !seen.has(href));
-            if (!newOnes.length) return 0;
-            newOnes.forEach(h => seen.add(h));
-            await crawler.requestQueue.addRequests(newOnes.map(url => ({ url, userData: { label: 'DETAIL' } })));
-            return newOnes.length;
         }
 
-        await harvestList();
-        await enqueueAll();
-        for (let i = 0; i < 30; i++) {
-            if (maxEvents > 0 && seen.size >= maxEvents) break;
+        await harvestAndPush();
+        for (let i = 0; i < 8; i++) {
+            if (maxEvents > 0 && pushedCount >= maxEvents) break;
             const button = await page.$('text=/^\s*SHOW ME MORE\s*$/i');
             if (!button) break;
-            const before = seen.size;
+            const before = pushedCount;
             await Promise.all([
                 button.click().catch(() => {}),
-                page.waitForLoadState('networkidle').catch(() => {}),
+                page.waitForLoadState('domcontentloaded').catch(() => {}),
             ]);
-            await page.waitForTimeout(700);
-            const added = await enqueueAll();
-            log.info(`Pagination click ${i + 1}: queued ${added} event links (total queued ${seen.size})`);
-            if (seen.size === before) break;
+            await page.waitForTimeout(250);
+            await harvestAndPush();
+            log.info(`Pagination click ${i + 1}: total artists pushed ${pushedCount}`);
+            if (pushedCount === before) break;
         }
     },
 });
 
-// Seed start page
 await crawler.run([{ url: startUrl }]);
-
-for (const item of items) {
-    await Actor.pushData(item);
-}
-
-console.log(`Mohawk scraper finished. Pushed ${items.length} items.`);
+console.log(`Mohawk scraper finished. Pushed ${pushedCount} items.`);
 await Actor.exit();

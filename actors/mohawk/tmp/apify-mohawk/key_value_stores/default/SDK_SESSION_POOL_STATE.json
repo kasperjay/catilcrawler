@@ -1,0 +1,97 @@
+{
+  "usableSessionsCount": 2,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_utwRjcPykQ",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2025-12-13T18:15:10.964Z",
+      "createdAt": "2025-12-13T17:25:10.964Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_RppK4hYBSr",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_ga_RHC981ED6X",
+            "value": "GS2.1.s1765646713$o1$g0$t1765646713$j60$l0$h0",
+            "expires": "2027-01-17T17:25:13.115Z",
+            "domain": "mohawkaustin.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2025-12-13T17:25:13.932Z",
+            "lastAccessed": "2025-12-13T17:25:13.932Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.2.393394139.1765646713",
+            "expires": "2027-01-17T17:25:13.209Z",
+            "domain": "mohawkaustin.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2025-12-13T17:25:13.933Z",
+            "lastAccessed": "2025-12-13T17:25:13.933Z"
+          },
+          {
+            "key": "_gid",
+            "value": "GA1.2.2035453317.1765646713",
+            "expires": "2025-12-14T17:25:13.000Z",
+            "domain": "mohawkaustin.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2025-12-13T17:25:13.933Z",
+            "lastAccessed": "2025-12-13T17:25:13.933Z"
+          },
+          {
+            "key": "_gat_gtag_UA_114683466_37",
+            "value": "1",
+            "expires": "2025-12-13T17:26:13.000Z",
+            "domain": "mohawkaustin.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2025-12-13T17:25:13.933Z",
+            "lastAccessed": "2025-12-13T17:25:13.933Z"
+          },
+          {
+            "key": "_fbp",
+            "value": "fb.1.1765646713436.387244299183278492",
+            "expires": "2026-03-13T17:25:13.000Z",
+            "domain": "mohawkaustin.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2025-12-13T17:25:13.933Z",
+            "lastAccessed": "2025-12-13T17:25:13.933Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2025-12-13T18:15:10.965Z",
+      "createdAt": "2025-12-13T17:25:10.965Z",
+      "usageCount": 1,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
