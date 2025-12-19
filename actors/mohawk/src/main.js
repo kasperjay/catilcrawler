@@ -163,6 +163,7 @@ const maxConcurrency = Number(input.maxConcurrency) || 6;
 const requestHandlerTimeoutSecs = Number(input.requestHandlerTimeoutSecs) || 60;
 
 let pushedCount = 0;
+const pushedKeys = new Set();
 const crawler = new PlaywrightCrawler({
     maxRequestsPerCrawl: maxEvents > 0 ? maxEvents + 2 : undefined,
     maxConcurrency,
@@ -209,10 +210,14 @@ const crawler = new PlaywrightCrawler({
                 for (let i = 0; i < artists.length; i++) {
                     if (maxEvents > 0 && pushedCount >= maxEvents) break;
                     const role = i === 0 ? 'headliner' : 'support';
+                    const artistName = artists[i];
+                    const dedupeKey = `${(r.url || '').toLowerCase()}__${artistName.toLowerCase()}`;
+                    if (pushedKeys.has(dedupeKey)) continue;
+                    pushedKeys.add(dedupeKey);
                     pushedCount += 1;
                     await Actor.pushData({
                         venueName: 'Mohawk Austin',
-                        artistName: artists[i],
+                        artistName,
                         role,
                         eventTitle,
                         eventURL: r.url,
