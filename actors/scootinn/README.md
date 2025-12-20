@@ -26,7 +26,7 @@ Each record contains:
 - `eventDate`: Full date (e.g., "January 23, 2026")
 - `eventTime`: Show time (e.g., "6:00 pm")
 - `venue`: "Scoot Inn"
-- `eventUrl`: Link to event details on Ticketmaster
+- `eventURL`: Link to event details on Ticketmaster
 - `price`: Ticket price (if available)
 - `soldOut`: Boolean indicating if tickets are sold out
 - `role`: "headliner" or "support"

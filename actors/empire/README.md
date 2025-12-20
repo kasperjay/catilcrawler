@@ -21,7 +21,7 @@ This Apify Actor scrapes the Empire ATX event calendar and returns one row per a
 Each row represents one artist at one event with the following fields:
 
 - `source`: "empireatx.com"
-- `eventUrl`: URL of the individual event page
+- `eventURL`: URL of the individual event page
 - `eventTitle`: Full event title
 - `eventDateText`: Event date text
 - `showTime`: Show start time (if available)

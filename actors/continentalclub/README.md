@@ -26,7 +26,7 @@ The Actor outputs a dataset containing event records with the following fields:
 - `eventDate`: Date of the event (YYYY-MM-DD format)
 - `eventTime`: Time of the event
 - `venue`: Name of the venue (Continental Club)
-- `eventUrl`: URL to the event page (if available)
+- `eventURL`: URL to the event page (if available)
 - `description`: Event description or additional details
 - `price`: Ticket price information (if available)
 - `scrapedAt`: ISO timestamp when the data was scraped

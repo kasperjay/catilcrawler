@@ -26,7 +26,7 @@ The Actor outputs a dataset with the following fields for each event:
 - `eventDate` - Date of the event 
 - `eventTime` - Time of the event
 - `venue` - Venue name (Saxon Pub)
-- `eventUrl` - Link to the event details
+- `eventURL` - Link to the event details
 - `description` - Event description
 - `price` - Ticket price information
 - `scrapedAt` - Timestamp when the data was scraped

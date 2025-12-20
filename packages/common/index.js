@@ -77,7 +77,7 @@ export function isNonConcertEvent(eventTitle, pageText, artistLines = [], custom
  */
 export function createEventRecord({
     source,
-    eventUrl,
+    eventURL,
     eventTitle,
     eventDateText,
     showTime,
@@ -90,7 +90,7 @@ export function createEventRecord({
 }) {
     return {
         source,
-        eventUrl,
+        eventURL,
         eventTitle,
         eventDateText,
         showTime: showTime || '',

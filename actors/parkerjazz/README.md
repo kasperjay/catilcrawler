@@ -25,7 +25,7 @@ Each record contains:
 - `eventDate`: Full date (e.g., "December 5, 2025")
 - `eventTime`: Show time (e.g., "7:30 pm")
 - `venue`: "Parker Jazz Club"
-- `eventUrl`: Link to event details
+- `eventURL`: Link to event details
 - `price`: Ticket price (if available)
 - `soldOut`: Boolean indicating if tickets are sold out
 - `role`: "headliner" or "support"

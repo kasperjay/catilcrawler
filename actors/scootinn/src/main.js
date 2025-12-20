@@ -34,7 +34,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -130,7 +130,7 @@ async function fetchEvents() {
                 if (!artistEntries.length) continue;
                 const eventDate = formatDate(entry.startDate);
                 const eventTime = formatTime(entry.startDate);
-                const eventUrl = entry.url || START_URL;
+                const eventURL = entry.url || START_URL;
                 const description = strip(entry.description || name);
                 for (const a of artistEntries) {
                     items.push({
@@ -139,7 +139,7 @@ async function fetchEvents() {
                         eventDate,
                         eventTime,
                         venue: 'Scoot Inn',
-                        eventUrl,
+                        eventURL,
                         price: '',
                         description,
                         scrapedAt: new Date().toISOString(),

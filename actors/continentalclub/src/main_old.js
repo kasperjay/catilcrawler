@@ -73,13 +73,13 @@ function isLikelyArtistName(text) {
     return true;
 }
 
-function createEventRecord(artist, eventDate, eventTime, venue, eventUrl, description, price) {
+function createEventRecord(artist, eventDate, eventTime, venue, eventURL, description, price) {
     return {
         artist: artist || '',
         eventDate: eventDate || '',
         eventTime: eventTime || '',
         venue: venue || '',
-        eventUrl: eventUrl || '',
+        eventURL: eventURL || '',
         description: description || '',
         price: price || '',
         scrapedAt: new Date().toISOString()
@@ -274,17 +274,17 @@ async function parseContinentalClubEvents(page) {
                                 isLikelyArtistName(cleanIndividualArtist)) {
                                 
                                 // Try to find an associated link
-                                let eventUrl = '';
+                                let eventURL = '';
                                 try {
                                     const linkElement = await element.locator('a').first();
-                                    eventUrl = await linkElement.getAttribute('href') || '';
+                                    eventURL = await linkElement.getAttribute('href') || '';
                                 } catch (e) {
-                                    eventUrl = '';
+                                    eventURL = '';
                                 }
                                 
-                                const fullUrl = eventUrl && eventUrl.startsWith('/') 
-                                    ? `https://continentalclub.com${eventUrl}` 
-                                    : eventUrl || '';
+                                const fullUrl = eventURL && eventURL.startsWith('/') 
+                                    ? `https://continentalclub.com${eventURL}` 
+                                    : eventURL || '';
                                 
                                 const record = createEventRecord(
                                     cleanIndividualArtist,
@@ -317,18 +317,18 @@ async function parseContinentalClubEvents(page) {
                 const cleanedArtist = cleanText(artistName);
                 if (cleanedArtist.length > 2) {
                     // Try to find an associated link
-                    let eventUrl = '';
+                    let eventURL = '';
                     try {
                         const linkElement = await element.locator('a').first();
-                        eventUrl = await linkElement.getAttribute('href') || '';
+                        eventURL = await linkElement.getAttribute('href') || '';
                     } catch (e) {
                         // No link found, use empty string
-                        eventUrl = '';
+                        eventURL = '';
                     }
                     
-                    const fullUrl = eventUrl && eventUrl.startsWith('/') 
-                        ? `https://continentalclub.com${eventUrl}` 
-                        : eventUrl || '';
+                    const fullUrl = eventURL && eventURL.startsWith('/') 
+                        ? `https://continentalclub.com${eventURL}` 
+                        : eventURL || '';
                     
                     const record = createEventRecord(
                         cleanedArtist,

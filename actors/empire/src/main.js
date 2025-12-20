@@ -6,18 +6,46 @@ const originalPushData = Actor.pushData.bind(Actor);
 
 function formatEventDateValue(value) {
     if (value === undefined || value === null) return '';
+
+    const normalizeString = (input) => input
+        .replace(/\s+/g, ' ')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .trim();
+
+    const tryParseDate = (input) => {
+        const isoDateOnly = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoDateOnly) {
+            const [, year, month, day] = isoDateOnly;
+            return new Date(Number(year), Number(month) - 1, Number(day));
+        }
+
+        const parsed = Date.parse(input);
+        if (!Number.isNaN(parsed)) return new Date(parsed);
+
+        if (/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}/.test(input)) {
+            const isoLike = input.replace(/\s+/, 'T');
+            const isoParsed = Date.parse(isoLike);
+            if (!Number.isNaN(isoParsed)) return new Date(isoParsed);
+        }
+
+        const monthDayYear = input.match(/[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}/);
+        if (monthDayYear) {
+            const mdParsed = Date.parse(monthDayYear[0]);
+            if (!Number.isNaN(mdParsed)) return new Date(mdParsed);
+        }
+
+        return null;
+    };
+
     let date;
     if (value instanceof Date) {
         date = value;
     } else if (typeof value === 'number') {
         date = new Date(value);
     } else if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed) return '';
-        const parsed = Date.parse(trimmed.replace(' ', 'T'));
-        if (!Number.isNaN(parsed)) {
-            date = new Date(parsed);
-        }
+        const cleaned = normalizeString(value).replace(/expired!?$/i, '').trim();
+        if (!cleaned) return '';
+        date = tryParseDate(cleaned);
     }
     if (!date || Number.isNaN(date.getTime())) {
         return typeof value === 'string' ? value.trim() : '';
@@ -35,7 +63,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -80,11 +108,11 @@ function isNonConcertEvent(eventTitle, pageText, artistLines = []) {
 
 // Create a standardized event record
 function createEventRecord({
-    source, eventUrl, eventTitle, eventDateText, showTime, doorsTime, 
+    source, eventURL, eventTitle, eventDateText, showTime, doorsTime, 
     priceText, venueName, market, artistName, role
 }) {
     return {
-        source, eventUrl, eventTitle, eventDateText,
+        source, eventURL, eventTitle, eventDateText,
         showTime: showTime || '', doorsTime: doorsTime || '', 
         priceText: priceText || '', venueName: venueName || '',
         market, artistName, role, scrapedAt: new Date().toISOString()
@@ -139,7 +167,7 @@ Actor.main(async () => {
             if (label === 'EVENT') {
                 log.info(`Parsing event page: ${request.url}`);
 
-                const eventUrl = request.url;
+                const eventURL = request.url;
 
                 // Wait for the page to fully load
                 await page.waitForSelector('h1, .event-title, [class*="title"]', { timeout: 10000 });
@@ -152,54 +180,89 @@ Actor.main(async () => {
                     try {
                         eventTitle = await page.$eval('[class*="title"], [class*="event-title"]', (el) => el.textContent.trim());
                     } catch {
-                        log.warning(`Could not find event title on ${eventUrl}`);
+                        log.warning(`Could not find event title on ${eventURL}`);
                     }
                 }
 
                 if (!eventTitle) {
-                    log.warning(`No event title found on ${eventUrl}, skipping`);
+                    log.warning(`No event title found on ${eventURL}, skipping`);
                     return;
                 }
 
                 log.info(`Processing event: ${eventTitle}`);
 
+                let bodyText = '';
+                try {
+                    bodyText = await page.textContent('body');
+                } catch (e) {
+                    log.warning(`Could not read body text on ${eventURL}: ${e.message}`);
+                }
+
                 // Extract date information
                 let eventDateText = '';
                 try {
-                    // Look for date in various formats and selectors
-                    const dateSelectors = [
-                        '[class*="date"]',
-                        '[class*="time"]',
-                        '.event-date',
-                        '.event-time',
-                        'time'
-                    ];
+                    eventDateText = await page.evaluate(() => {
+                        const selectors = [
+                            '[itemprop="startDate"]',
+                            '.mec-start-date-label',
+                            'time[itemprop="startDate"]',
+                            'time[datetime]',
+                        ];
 
-                    for (const selector of dateSelectors) {
-                        try {
-                            const dateEl = await page.$(selector);
-                            if (dateEl) {
-                                eventDateText = await dateEl.textContent();
-                                if (eventDateText && eventDateText.trim()) {
-                                    eventDateText = eventDateText.trim();
-                                    break;
+                        for (const selector of selectors) {
+                            const el = document.querySelector(selector);
+                            if (!el) continue;
+                            const attr = el.getAttribute('content') || el.getAttribute('datetime');
+                            const text = el.textContent || '';
+                            const value = attr || text;
+                            if (value && value.trim()) {
+                                return value.replace(/\s+/g, ' ').trim();
+                            }
+                        }
+
+                        const container = document.querySelector('.mec-single-event-date, .event-date, [class*="single-event-date"]');
+                        if (container && container.textContent) {
+                            return container.textContent.replace(/\s+/g, ' ').trim();
+                        }
+
+                        return '';
+                    });
+                } catch (e) {
+                    log.warning(`Could not extract date from ${eventURL}: ${e.message}`);
+                }
+
+                if (!eventDateText) {
+                    try {
+                        const ldStart = await page.$$eval('script[type="application/ld+json"]', (scripts) => {
+                            for (const script of scripts) {
+                                try {
+                                    const data = JSON.parse(script.textContent || '{}');
+                                    const items = Array.isArray(data) ? data : [data];
+                                    for (const item of items) {
+                                        if (item && typeof item === 'object') {
+                                            if (item['@type'] === 'Event' && item.startDate) return item.startDate;
+                                            if (item.event && item.event.startDate) return item.event.startDate;
+                                        }
+                                    }
+                                } catch {
+                                    // ignore parsing errors
                                 }
                             }
-                        } catch (e) {
-                            // Continue to next selector
+                            return '';
+                        });
+                        if (ldStart) {
+                            eventDateText = ldStart;
                         }
+                    } catch (e) {
+                        log.warning(`Could not read JSON-LD for date on ${eventURL}: ${e.message}`);
                     }
+                }
 
-                    // If still no date, try to extract from page text
-                    if (!eventDateText) {
-                        const pageText = await page.textContent('body');
-                        const dateMatch = pageText.match(/[A-Za-z]+,?\s+[A-Za-z]+\s+\d{1,2}(?:,?\s+\d{4})?/);
-                        if (dateMatch) {
-                            eventDateText = dateMatch[0];
-                        }
+                if (!eventDateText && bodyText) {
+                    const dateMatch = bodyText.match(/[A-Za-z]{3,9}\s+\d{1,2}(?:,?\s+\d{4})/);
+                    if (dateMatch) {
+                        eventDateText = dateMatch[0];
                     }
-                } catch (e) {
-                    log.warning(`Could not extract date from ${eventUrl}: ${e.message}`);
                 }
 
                 // Extract show time, doors time, and price info
@@ -208,8 +271,6 @@ Actor.main(async () => {
                 let priceText = '';
 
                 try {
-                    const bodyText = await page.textContent('body');
-                    
                     // Look for show time
                     const showMatch = bodyText.match(/show[:\s]+(\d{1,2}(?::\d{2})?\s*[ap]m)/i);
                     if (showMatch) {
@@ -228,7 +289,7 @@ Actor.main(async () => {
                         priceText = priceMatch[0];
                     }
                 } catch (e) {
-                    log.warning(`Could not extract time/price info from ${eventUrl}: ${e.message}`);
+                    log.warning(`Could not extract time/price info from ${eventURL}: ${e.message}`);
                 }
 
                 // Determine venue from title
@@ -243,14 +304,14 @@ Actor.main(async () => {
                 const artists = parseEmpireArtists(eventTitle);
 
                 if (artists.length === 0) {
-                    log.warning(`No artists parsed from title: ${eventTitle} on ${eventUrl}`);
+                    log.warning(`No artists parsed from title: ${eventTitle} on ${eventURL}`);
                     return;
                 }
 
                 // Filter out non-concert events
                 const allArtistNames = artists.map(a => a.name).join(' ');
                 if (isNonConcertEvent(eventTitle, allArtistNames, [])) {
-                    log.info(`Skipping non-concert event: ${eventTitle} on ${eventUrl}`);
+                    log.info(`Skipping non-concert event: ${eventTitle} on ${eventURL}`);
                     return;
                 }
 
@@ -258,7 +319,7 @@ Actor.main(async () => {
                 for (const artist of artists) {
                     const record = createEventRecord({
                         source: 'empireatx.com',
-                        eventUrl,
+                        eventURL,
                         eventTitle,
                         eventDateText,
                         showTime,

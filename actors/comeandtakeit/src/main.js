@@ -36,7 +36,8 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.url ?? '').trim();
+        const source = (item?.source ?? eventURL ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -52,7 +53,7 @@ Actor.pushData = async (record) => {
             scrapedAt: item?.scrapedAt || new Date().toISOString(),
         };
 
-        const dedupeKey = `${normalized.eventURL || normalized.eventTitle || ''}__${normalized.artistName || ''}__${normalized.eventDate || ''}`.toLowerCase();
+        const dedupeKey = `${normalized.eventURL || normalized.source || normalized.eventTitle || ''}__${normalized.artistName || ''}__${normalized.eventDate || ''}`.toLowerCase();
         if (pushedKeys.has(dedupeKey)) {
             log.debug(`Skipping duplicate record for ${normalized.eventURL || normalized.eventTitle}: ${normalized.artistName}`);
             return;
@@ -80,9 +81,10 @@ function isNonConcertEvent(eventTitle, pageText, artistLines = [], customKeyword
     return allKeywords.some((keyword) => combinedText.includes(keyword));
 }
 
-function createEventRecord({ source, eventUrl, eventTitle, eventDateText, showTime, doorsTime, priceText, venueName, market, artistName, role }) {
+function createEventRecord({ source, eventURL, eventTitle, eventDateText, showTime, doorsTime, priceText, venueName, market, artistName, role }) {
     return {
-        source, eventUrl, eventTitle, eventDateText,
+        source: source || eventURL || '',
+        eventURL, eventTitle, eventDateText,
         showTime: showTime || '', doorsTime: doorsTime || '', priceText: priceText || '',
         venueName: venueName || '', market, artistName, role,
         scrapedAt: new Date().toISOString()
@@ -218,7 +220,7 @@ Actor.main(async () => {
             if (label === 'EVENT') {
                 log.info(`Parsing event page: ${request.url}`);
 
-                const eventUrl = request.url;
+                const eventURL = request.url;
 
                 // Event title (big H1)
                 let eventTitle = '';
@@ -226,7 +228,7 @@ Actor.main(async () => {
                     eventTitle = (await page.textContent('h1')) || '';
                     eventTitle = eventTitle.trim();
                 } catch {
-                    log.warning(`Could not get <h1> title on ${eventUrl}`);
+                    log.warning(`Could not get <h1> title on ${eventURL}`);
                 }
 
                 // Grab all visible text from the page body instead of <main>
@@ -253,29 +255,41 @@ Actor.main(async () => {
                     lines.find((l) => l.toLowerCase().startsWith('doors:')) || '';
                 const priceLine = lines.find((l) => l.includes('$')) || '';
 
-                // Venue name – appears as "Come and Take it Live" link on the page
+                // Venue name – derive from URL or meaningful link text (avoid grabbing "HERE")
                 let venueName = '';
-                try {
-                    venueName = await page.textContent('a[href*="comeandtakeitlive.com"], a[href*="house-of-rock"]');
-                } catch {
-                    // Ignore, we'll try a fallback below
+                const eventURLLower = eventURL.toLowerCase();
+                if (eventURLLower.includes('house-of-rock')) {
+                    venueName = 'House of Rock';
+                } else if (eventURLLower.includes('come-and-take-it-live')) {
+                    venueName = 'Come and Take It Live';
                 }
 
                 if (!venueName) {
-                    // Fallback: a link that looks like a short, title-ish name in the body
+                    try {
+                        venueName = await page.textContent('a[href*="comeandtakeitlive.com"], a[href*="house-of-rock"]');
+                    } catch {
+                        // Ignore, we'll try a fallback below
+                    }
+                }
+
+                if (!venueName) {
+                    // Fallback: a link that looks like a proper venue name and not generic "HERE"
                     const venueCandidate = await page.$$eval('body a', (as) => {
-                        const badWords = ['Buy Tickets', 'HERE', 'SUBSCRIBE', 'Powered by'];
+                        const badWords = ['buy tickets', 'here', 'subscribe', 'powered by'];
+                        const goodHints = ['come and take it', 'house of rock'];
                         for (const a of as) {
                             const t = (a.textContent || '').trim();
                             if (!t) continue;
-                            if (badWords.some((w) => t.includes(w))) continue;
-                            if (t.length < 40) return t;
+                            const lower = t.toLowerCase();
+                            if (t.length < 5 || t.length > 60) continue;
+                            if (badWords.some((w) => lower.includes(w))) continue;
+                            if (goodHints.some((hint) => lower.includes(hint))) return t;
                         }
                         return '';
                     });
                     venueName = venueCandidate || '';
                 }
-                venueName = (venueName || '').trim();
+                venueName = (venueName || '').replace(/\s+/g, ' ').trim();
 
                 // Artist block
                 //
@@ -429,21 +443,21 @@ Actor.main(async () => {
 
                 // Filter out non-concert events using shared utility
                 if (isNonConcertEvent(eventTitle, mainTextRaw, artistLines)) {
-                    log.info(`Skipping non-concert event detected by keyword on ${eventUrl}: ${eventTitle}`);
+                    log.info(`Skipping non-concert event detected by keyword on ${eventURL}: ${eventTitle}`);
                     return;
                 }
 
                 if (artistLines.length === 0) {
-                    log.warning(`No artist lines parsed on ${eventUrl}. Layout may have changed or pattern didn't match.`);
+                    log.warning(`No artist lines parsed on ${eventURL}. Layout may have changed or pattern didn't match.`);
                 }
 
                 // Fallback: if we couldn't parse any artist lines, treat eventTitle as a single headliner.
                 if (artistLines.length === 0) {
                     if (eventTitle) {
-                        log.warning(`No artist lines parsed on ${eventUrl}. Using eventTitle as single headliner.`);
+                        log.warning(`No artist lines parsed on ${eventURL}. Using eventTitle as single headliner.`);
                         const record = createEventRecord({
-                            source: 'comeandtakeitproductions.com',
-                            eventUrl,
+                            source: eventURL,
+                            eventURL,
                             eventTitle,
                             eventDateText: dateLine,
                             showTime: extractTime(showLine, 'show'),
@@ -456,7 +470,7 @@ Actor.main(async () => {
                         });
                         await Actor.pushData(record);
                     } else {
-                        log.warning(`No artist lines and no eventTitle on ${eventUrl}. Skipping.`);
+                        log.warning(`No artist lines and no eventTitle on ${eventURL}. Skipping.`);
                     }
                     return; // don't try to loop artistLines
                 }
@@ -466,15 +480,11 @@ Actor.main(async () => {
                     const role = index === 0 ? 'headliner' : 'support';
                 
                     const record = createEventRecord({
-                        source: 'comeandtakeitproductions.com',
-                        eventUrl,
+                        source: eventURL,
+                        eventURL,
                         eventTitle,
                         eventDateText: dateLine,
-                        showTime: extractTime(showLine, 'show'),
-                        doorsTime: extractTime(doorsLine, 'doors'),
-                        priceText: priceLine,
                         venueName,
-                        market: MARKETS.AUSTIN,
                         artistName,
                         role,
                     });

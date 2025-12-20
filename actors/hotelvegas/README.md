@@ -33,7 +33,7 @@ Each artist gets their own record with:
 - `eventTime`: Set time for this artist
 - `doorsTime`: When doors open
 - `venue`: Hotel Vegas location (Inside/Patio/Volstead)
-- `eventUrl`: Link to event details
+- `eventURL`: Link to event details
 - `price`: Ticket cost or "Free"
 - `role`: "headliner" or "support"
 - `scrapedAt`: ISO timestamp

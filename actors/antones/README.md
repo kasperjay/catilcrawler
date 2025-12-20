@@ -37,7 +37,7 @@ Each record represents one artist performing at an event:
   "eventTime": "8:00 pm",
   "doorsTime": "7:00 pm",
   "venue": "Antone's Nightclub",
-  "eventUrl": "https://antonesnightclub.com/tm-event/event-name/",
+  "eventURL": "https://antonesnightclub.com/tm-event/event-name/",
   "description": "Event description",
   "price": "$25 or Sold Out",
   "scrapedAt": "2025-12-02T..."

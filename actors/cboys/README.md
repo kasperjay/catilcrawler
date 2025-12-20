@@ -18,7 +18,7 @@ Each dataset item contains:
 - `eventDate`
 - `eventTime`
 - `venue`
-- `eventUrl`
+- `eventURL`
 - `description`
 - `price`
 - `scrapedAt`

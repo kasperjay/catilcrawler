@@ -34,7 +34,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -103,7 +103,7 @@ function createEventRecord(event) {
         eventDate: formatDateForDisplay(event.start_date),
         eventTime: formatTimeForDisplay(event.start_date),
         venue: event.venue?.venue || 'Saxon Pub',
-        eventUrl: event.url || '',
+        eventURL: event.url || '',
         description: stripHtml(event.description || event.excerpt || ''),
         price: normalizePrice(event),
         scrapedAt: new Date().toISOString(),

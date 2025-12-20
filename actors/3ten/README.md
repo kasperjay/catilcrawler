@@ -22,7 +22,7 @@ Each scraped event produces records with:
 - `eventDate`: Date of the event
 - `eventTime`: Show time
 - `venue`: "ACL Live at 3TEN"
-- `eventUrl`: Link to event details
+- `eventURL`: Link to event details
 - `description`: Event subtitle/description
 - `role`: "headliner" or "support"
 - `scrapedAt`: Timestamp of scraping

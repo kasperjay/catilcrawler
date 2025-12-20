@@ -27,6 +27,6 @@ Each artist on an event produces:
 - `eventDate` – Date (e.g., “December 5, 2025”)
 - `eventTime` – First time token on the line (if any)
 - `venue` – “Broken Spoke”
-- `eventUrl` – Calendar URL
+- `eventURL` – Calendar URL
 - `description` – Raw event line text
 - `scrapedAt` – ISO timestamp

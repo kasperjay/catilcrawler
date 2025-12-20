@@ -21,4 +21,4 @@ apify run
 ## Output
 
 Each record includes:
-- `artist`, `eventDate`, `eventTime`, `venue`, `eventUrl`, `description`, `price`, `scrapedAt`
+- `artist`, `eventDate`, `eventTime`, `venue`, `eventURL`, `description`, `price`, `scrapedAt`

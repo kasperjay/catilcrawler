@@ -29,7 +29,7 @@ Each artist on an event produces:
 - `eventTime` – Show time in Central Time
 - `doorsTime` – Doors time when available
 - `venue` – "Haute Spot"
-- `eventUrl` – Link to the event
+- `eventURL` – Link to the event
 - `price` – Price or text snippet when available
 - `description` – Short description/excerpt
 - `scrapedAt` – ISO timestamp of the crawl

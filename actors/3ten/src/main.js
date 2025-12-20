@@ -35,7 +35,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -258,7 +258,7 @@ const crawler = new PlaywrightCrawler({
                     eventDate,
                     eventTime,
                     venue: 'ACL Live at 3TEN',
-                    eventUrl: url,
+                    eventURL: url,
                     price: price || '',
                     role,
                     scrapedAt: new Date().toISOString(),

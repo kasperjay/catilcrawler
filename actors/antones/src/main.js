@@ -35,7 +35,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -408,7 +408,7 @@ const crawler = new PlaywrightCrawler({
                 
                 // Build event URL from dialog hash if it follows pattern
                 const eventIdMatch = event.href.match(/#tw-event-dialog-(\d+)/);
-                let eventUrl = event.href;
+                let eventURL = event.href;
                 // We'll use the calendar URL since we can't reliably get the detail URL without clicking
                 
                 if (headliners.length === 0 && support.length === 0) {
@@ -426,8 +426,8 @@ const crawler = new PlaywrightCrawler({
                             eventDate,
                             eventTime,
                             doorsTime,
-                            venue: 'Antone\'s Nightclub',
-                            eventUrl,
+                            venueName: 'Antone\'s Nightclub',
+                            eventURL,
                             description: '',
                             price: isSoldOut ? 'Sold Out' : '',
                             scrapedAt: new Date().toISOString()
@@ -441,8 +441,8 @@ const crawler = new PlaywrightCrawler({
                             eventDate,
                             eventTime,
                             doorsTime,
-                            venue: 'Antone\'s Nightclub',
-                            eventUrl,
+                            venueName: 'Antone\'s Nightclub',
+                            eventURL,
                             description: '',
                             price: isSoldOut ? 'Sold Out' : '',
                             scrapedAt: new Date().toISOString()

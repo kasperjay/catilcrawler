@@ -27,6 +27,6 @@ Each artist row includes:
 - `eventDate` – Date (e.g., “December 1, 2025”)
 - `eventTime` – Time parsed from the listing when present
 - `venue` – “Elephant Room”
-- `eventUrl` – Link to the specific event popup
+- `eventURL` – Link to the specific event popup
 - `description` – Listing text
 - `scrapedAt` – ISO timestamp

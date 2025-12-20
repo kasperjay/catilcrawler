@@ -29,7 +29,7 @@ Each artist on an event produces:
 - `eventTime` – Local show time
 - `doorsTime` – Doors time when provided
 - `venue` – "The Cut ATX"
-- `eventUrl` – Ticket/event link
+- `eventURL` – Ticket/event link
 - `price` – Minimum ticket total if available
 - `description` – Event description text
 - `scrapedAt` – ISO timestamp of the crawl

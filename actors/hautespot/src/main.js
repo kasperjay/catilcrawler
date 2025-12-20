@@ -35,7 +35,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventUrl ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -162,7 +162,7 @@ function buildJsonUrl(baseUrl, offset) {
 }
 
 function buildRecords(item) {
-    const eventUrl = new URL(item.fullUrl || '', BASE_HOST).toString();
+    const eventURL = new URL(item.fullUrl || '', BASE_HOST).toString();
     const bodyText = htmlToText(item.body || '');
     const description = htmlToText(item.excerpt || '');
     const eventDate = formatDate(item.startDate || item.structuredContent?.startDate);
@@ -180,7 +180,7 @@ function buildRecords(item) {
         eventTime,
         doorsTime,
         venue: VENUE_NAME,
-        eventUrl,
+        eventURL,
         price,
         description,
         scrapedAt,
@@ -195,7 +195,7 @@ function buildRecords(item) {
             eventTime,
             doorsTime,
             venue: VENUE_NAME,
-            eventUrl,
+            eventURL,
             price,
             description,
             scrapedAt,
