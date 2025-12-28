@@ -5,6 +5,7 @@
     "dataset": {
       "type": "string",
       "title": "Dataset",
+      "description": "Link to dataset items produced by this run.",
       "template": "{{links.apiDefaultDatasetUrl}}/items"
     }
   }

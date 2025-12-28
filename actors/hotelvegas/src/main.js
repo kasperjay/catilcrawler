@@ -265,6 +265,7 @@ const crawler = new PlaywrightCrawler({
                         eventDate,
                         venue,
                         eventURL: url,
+
                         role,
                         scrapedAt: new Date().toISOString(),
                     });

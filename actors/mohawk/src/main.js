@@ -1,5 +1,4 @@
 import { Actor } from 'apify';
-import { PlaywrightCrawler } from 'crawlee';
 
 // Ensure uniform artistName + eventDate formatting across outputs
 const originalPushData = Actor.pushData.bind(Actor);
@@ -35,7 +34,7 @@ Actor.pushData = async (record) => {
         const artistName = (item?.artistName ?? item?.artist ?? '').trim();
         const venueName = (item?.venueName ?? item?.venue ?? '').trim();
         const eventTitle = (item?.eventTitle ?? item?.title ?? item?.name ?? item?.event ?? item?.artist ?? '').trim();
-        const eventURL = (item?.eventURL ?? item?.eventURL ?? item?.url ?? '').trim();
+        const eventURL = (item?.eventURL ?? item?.url ?? '').trim();
         const description = (item?.description ?? '').toString().trim();
         const role = (item?.role ?? 'headliner') || 'headliner';
         const eventDateRaw = item?.eventDate ?? item?.eventDateText ?? item?.date ?? item?.startDate ?? item?.start_time ?? item?.dateAttr ?? item?.eventDateStr ?? item?.event_date;
@@ -111,7 +110,7 @@ function splitArtists(raw) {
     t = t.replace(/\([^\)]+\)/g, '');
     // split by common separators
     const parts = t
-        .split(/\bw\/\.?\s*|\bwith\b\s*|\+\s*|,\s*/i)
+        .split(/\bw\/\.\?\s*|\bwith\b\s*|\+\s*|,\s*/i)
         .map(s => strip(s))
         .filter(Boolean);
     return [...new Set(parts)];
@@ -153,100 +152,126 @@ function isLikelyArtist(name) {
     return true;
 }
 
-console.log('Starting Mohawk Austin scraper (Playwright)...');
+function parsePrekindleJsonp(body = '') {
+    const trimmed = body.trim();
+    const prefix = 'callback(';
+    if (!trimmed.startsWith(prefix) || !trimmed.endsWith(')')) {
+        throw new Error('Unexpected response format from Prekindle');
+    }
+    const jsonText = trimmed.slice(prefix.length, -1);
+    return JSON.parse(jsonText);
+}
+
+function normalizeVenueName(venueRaw = '') {
+    const lower = venueRaw.toLowerCase();
+    if (lower.includes('indoor')) return 'Mohawk - Inside';
+    if (lower.includes('outdoor')) return 'Mohawk - Outside';
+    return 'Mohawk Austin';
+}
+
+function sanitizeDescription(html = '') {
+    const withoutTags = html.replace(/<[^>]*>/g, ' ');
+    return strip(
+        withoutTags
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&amp;/gi, '&')
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;/g, '\'')
+            .replace(/&ndash;/gi, '-')
+            .replace(/&mdash;/gi, '-')
+    );
+}
+
+function buildEventDateValue({ date, time, doorsTime }) {
+    const datePart = strip(date);
+    const timePart = strip(time || doorsTime);
+    if (datePart && timePart) {
+        const combined = new Date(`${datePart} ${timePart}`);
+        if (!Number.isNaN(combined.getTime())) return combined;
+    }
+    if (datePart) {
+        const justDate = new Date(datePart);
+        if (!Number.isNaN(justDate.getTime())) return justDate;
+    }
+    return `${datePart} ${timePart}`.trim();
+}
+
+function buildEventUrl(base, id) {
+    if (!id) return base;
+    try {
+        return new URL(`/event/?id=${id}`, base).href;
+    } catch {
+        return base;
+    }
+}
+
+function extractArtistsFromEvent(event) {
+    const lineup = Array.isArray(event?.lineup) ? event.lineup : [];
+    const candidates = [
+        ...lineup,
+        ...splitArtists(event?.headliner || ''),
+        ...splitArtists(event?.support || ''),
+        ...splitArtists(event?.title || ''),
+    ];
+    const unique = [...new Set(candidates.map(strip))].filter(Boolean).filter(isLikelyArtist);
+    if (unique.length) return unique;
+    const fallback = strip(event?.title || '');
+    return fallback ? [fallback] : [];
+}
+
+console.log('Starting Mohawk Austin scraper (Prekindle API)...');
 await Actor.init();
 
 const input = await Actor.getInput() || {};
 const startUrl = input.startUrl || 'https://mohawkaustin.com/';
 const maxEvents = Number(input.maxEvents) || 500;
-const maxConcurrency = Number(input.maxConcurrency) || 6;
-const requestHandlerTimeoutSecs = Number(input.requestHandlerTimeoutSecs) || 60;
 
 let pushedCount = 0;
 const pushedKeys = new Set();
-const crawler = new PlaywrightCrawler({
-    maxRequestsPerCrawl: maxEvents > 0 ? maxEvents + 2 : undefined,
-    maxConcurrency,
-    requestHandlerTimeoutSecs,
-    navigationTimeoutSecs: 30,
-    launchContext: {
-        launchOptions: {
-            headless: true,
-        }
-    },
-    requestHandler: async ({ page, log }) => {
-        await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(250);
+const prekindleUrl = 'https://www.prekindle.com/api/events/organizer/531433527670566235';
 
-        const seen = new Set();
+const response = await fetch(prekindleUrl);
+if (!response.ok) {
+    throw new Error(`Failed to load Prekindle data: ${response.status} ${response.statusText}`);
+}
 
-        async function harvestAndPush() {
-            const rows = await page.$$eval('a[href*="/event/"], a[href*="/event/?id="]', (anchors) => {
-                const out = [];
-                for (const a of anchors) {
-                    const href = a.href;
-                    if (!href) continue;
-                    const text = (a.textContent || '').trim();
-                    const container = a.closest('article, section, li, div') || a.parentElement;
-                    const h2 = container?.querySelector('h2, .subtitle, .subheadline');
-                    const subtitle = h2 ? (h2.textContent || '').trim() : '';
-                    out.push({ url: href, title: text, subtitle });
-                }
-                return out;
-            });
+const payload = parsePrekindleJsonp(await response.text());
+const events = payload?.events || [];
 
-            for (const r of rows) {
-                if (maxEvents > 0 && pushedCount >= maxEvents) break;
-                if (seen.has(r.url)) continue;
-                const fromTitle = splitArtists(r.title);
-                const fromSubtitle = splitArtists(r.subtitle);
-                const artists = [...new Set([...fromTitle, ...fromSubtitle])].filter(isLikelyArtist);
-                if (!artists.length) continue;
-                seen.add(r.url);
+for (const event of events) {
+    if (maxEvents > 0 && pushedCount >= maxEvents) break;
+    const venueName = normalizeVenueName(event?.venue);
+    const eventURL = buildEventUrl(startUrl, event?.id);
+    const eventTitle = strip(event?.headliner || event?.title || '');
+    const eventDateValue = buildEventDateValue({ date: event?.date, time: event?.time, doorsTime: event?.doorsTime });
+    const eventDate = formatEventDateValue(eventDateValue) || strip(`${event?.date || ''} ${event?.time || ''}`);
+    const descriptionParts = [sanitizeDescription(event?.description || ''), strip(event?.support || '')].filter(Boolean);
+    const description = [...new Set(descriptionParts)].join(' | ');
 
-                const eventTitle = r.title || r.subtitle || '';
-                const description = r.subtitle || r.title || '';
+    const artists = extractArtistsFromEvent(event);
+    if (!artists.length) continue;
 
-                for (let i = 0; i < artists.length; i++) {
-                    if (maxEvents > 0 && pushedCount >= maxEvents) break;
-                    const role = i === 0 ? 'headliner' : 'support';
-                    const artistName = artists[i];
-                    const dedupeKey = `${(r.url || '').toLowerCase()}__${artistName.toLowerCase()}`;
-                    if (pushedKeys.has(dedupeKey)) continue;
-                    pushedKeys.add(dedupeKey);
-                    pushedCount += 1;
-                    await Actor.pushData({
-                        venueName: 'Mohawk Austin',
-                        artistName,
-                        role,
-                        eventTitle,
-                        eventURL: r.url,
-                        eventDate: '',
-                        description,
-                        scrapedAt: new Date().toISOString(),
-                    });
-                }
-            }
-        }
+    for (let i = 0; i < artists.length; i++) {
+        if (maxEvents > 0 && pushedCount >= maxEvents) break;
+        const artistName = artists[i];
+        const role = i === 0 ? 'headliner' : 'support';
+        const dedupeKey = `${(event?.id || eventTitle || '').toLowerCase()}__${artistName.toLowerCase()}`;
+        if (pushedKeys.has(dedupeKey)) continue;
+        pushedKeys.add(dedupeKey);
+        pushedCount += 1;
 
-        await harvestAndPush();
-        for (let i = 0; i < 8; i++) {
-            if (maxEvents > 0 && pushedCount >= maxEvents) break;
-            const button = await page.$('text=/^\s*SHOW ME MORE\s*$/i');
-            if (!button) break;
-            const before = pushedCount;
-            await Promise.all([
-                button.click().catch(() => {}),
-                page.waitForLoadState('domcontentloaded').catch(() => {}),
-            ]);
-            await page.waitForTimeout(250);
-            await harvestAndPush();
-            log.info(`Pagination click ${i + 1}: total artists pushed ${pushedCount}`);
-            if (pushedCount === before) break;
-        }
-    },
-});
+        await Actor.pushData({
+            venueName,
+            artistName,
+            role,
+            eventTitle,
+            eventURL,
+            eventDate,
+            description,
+            scrapedAt: new Date().toISOString(),
+        });
+    }
+}
 
-await crawler.run([{ url: startUrl }]);
 console.log(`Mohawk scraper finished. Pushed ${pushedCount} items.`);
 await Actor.exit();
