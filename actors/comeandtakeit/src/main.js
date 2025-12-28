@@ -1,9 +1,54 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, log } from 'crawlee';
 
-// Ensure uniform artistName + eventDate formatting across outputs and dedupe at source
+// Ensure uniform aName + eventDate formatting across outputs and dedupe at source
 const originalPushData = Actor.pushData.bind(Actor);
 const pushedKeys = new Set();
+
+const MONTH_INDEX_BY_NAME = {
+    jan: 0, january: 0,
+    feb: 1, february: 1,
+    mar: 2, march: 2,
+    apr: 3, april: 3,
+    may: 4,
+    jun: 5, june: 5,
+    jul: 6, july: 6,
+    aug: 7, august: 7,
+    sep: 8, sept: 8, september: 8,
+    oct: 9, october: 9,
+    nov: 10, november: 10,
+    dec: 11, december: 11,
+};
+
+function inferYearFromMonthDay(monthIndex, day) {
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let candidate = new Date(today.getFullYear(), monthIndex, day);
+    if (candidate < todayMidnight) {
+        candidate = new Date(today.getFullYear() + 1, monthIndex, day);
+    }
+    return candidate;
+}
+
+function parseMonthDayString(str) {
+    const match = str.match(/^(?:[A-Za-z]+,?\s+)?([A-Za-z]+)\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+    if (!match) return null;
+
+    const [, monthName, dayStr, yearStr] = match;
+    const monthIndex = MONTH_INDEX_BY_NAME[monthName.toLowerCase()];
+    if (monthIndex === undefined) return null;
+
+    const day = Number.parseInt(dayStr, 10);
+    if (!Number.isInteger(day) || day < 1 || day > 31) return null;
+
+    if (yearStr) {
+        const year = Number.parseInt(yearStr, 10);
+        if (!Number.isInteger(year)) return null;
+        return new Date(year, monthIndex, day);
+    }
+
+    return inferYearFromMonthDay(monthIndex, day);
+}
 
 function formatEventDateValue(value) {
     if (value === undefined || value === null) return '';
@@ -15,9 +60,13 @@ function formatEventDateValue(value) {
     } else if (typeof value === 'string') {
         const trimmed = value.trim();
         if (!trimmed) return '';
-        const parsed = Date.parse(trimmed.replace(' ', 'T'));
-        if (!Number.isNaN(parsed)) {
-            date = new Date(parsed);
+
+        date = parseMonthDayString(trimmed);
+        if (!date) {
+            const parsed = Date.parse(trimmed.replace(' ', 'T'));
+            if (!Number.isNaN(parsed)) {
+                date = new Date(parsed);
+            }
         }
     }
     if (!date || Number.isNaN(date.getTime())) {
